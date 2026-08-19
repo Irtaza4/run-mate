@@ -21,7 +21,18 @@ class AppColors {
   static const Color warning = Color(0xFFF2C76B);
   static const Color danger = Color(0xFFEA7777);
   static const Color mutedText = Color(0xFF8C9292);
+  static const Color subtleGray = Color(0xFF8E959E);
   static const Color divider = Color(0xFFE4E7E7);
+
+  // New UI Tokens matching Reference
+  static const Color statCapsuleDark = Color(0xFF0F1012);
+  static const Color statArcMintLight = Color(0xFFA5ECE2);
+  static const Color statArcMintDark = Color(0xFF4AC4B3);
+  static const Color statArcTrack = Color(0xFF1B1D20);
+  static const Color tileMint = Color(0xFFC7E7DF);
+  static const Color tileMintDark = Color(0xFF84CFBF);
+  static const Color tileMintLight = Color(0xFFE3F4F0);
+  static const Color lavenderBadge = Color(0xFFC4B5FD);
 
   // Dark Mode Tokens
   static const Color darkBackground = Color(0xFF111313);

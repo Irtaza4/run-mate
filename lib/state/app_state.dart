@@ -13,7 +13,7 @@ class AppState extends ChangeNotifier {
 
   // --- Theme & Navigation ---
   bool _isDarkMode = false;
-  int _currentTabIndex = 0;
+  int _currentTabIndex = 1; // Default to Home (center tab)
 
   bool get isDarkMode => _isDarkMode;
   int get currentTabIndex => _currentTabIndex;
@@ -262,6 +262,286 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- Check Your Stats Timeframe & Metrics ---
+  String _statTimeframe = 'Day'; // 'Day', 'W', 'M', 'Y'
+  String get statTimeframe => _statTimeframe;
+
+  final List<String> statTimeframeOptions = const ['Day', 'W', 'M', 'Y'];
+
+  void setStatTimeframe(String filter) {
+    _statTimeframe = filter;
+    notifyListeners();
+  }
+
+  List<StatMetric> get statMetrics {
+    switch (_statTimeframe) {
+      case 'W':
+        return const [
+          StatMetric(
+            id: 'steps',
+            title: 'Steps',
+            value: '54.2k',
+            targetOrUnit: '/50.0k',
+            trendText: '8% more',
+            isTrendUp: true,
+            progress: 0.82,
+            iconType: StatIconType.steps,
+          ),
+          StatMetric(
+            id: 'heart_rate',
+            title: 'Heart Rate',
+            value: '76',
+            targetOrUnit: '/110 bpm',
+            trendText: '18% lower',
+            isTrendUp: false,
+            progress: 0.50,
+            iconType: StatIconType.heartRate,
+          ),
+          StatMetric(
+            id: 'calories',
+            title: 'Calories',
+            value: '12.4k',
+            targetOrUnit: '/14.0k kcal',
+            trendText: '6% more',
+            isTrendUp: true,
+            progress: 0.75,
+            iconType: StatIconType.calories,
+          ),
+          StatMetric(
+            id: 'distance',
+            title: 'Distance',
+            value: '38.4',
+            targetOrUnit: '/45.0 km',
+            trendText: '14% more',
+            isTrendUp: true,
+            progress: 0.85,
+            iconType: StatIconType.distance,
+          ),
+          StatMetric(
+            id: 'pace',
+            title: 'Avg Pace',
+            value: '5:24',
+            targetOrUnit: '/km',
+            trendText: '4% faster',
+            isTrendUp: true,
+            progress: 0.70,
+            iconType: StatIconType.pace,
+          ),
+        ];
+      case 'M':
+        return const [
+          StatMetric(
+            id: 'steps',
+            title: 'Steps',
+            value: '238k',
+            targetOrUnit: '/220k',
+            trendText: '12% more',
+            isTrendUp: true,
+            progress: 0.88,
+            iconType: StatIconType.steps,
+          ),
+          StatMetric(
+            id: 'heart_rate',
+            title: 'Heart Rate',
+            value: '74',
+            targetOrUnit: '/108 bpm',
+            trendText: '25% lower',
+            isTrendUp: false,
+            progress: 0.48,
+            iconType: StatIconType.heartRate,
+          ),
+          StatMetric(
+            id: 'calories',
+            title: 'Calories',
+            value: '54.2k',
+            targetOrUnit: '/58.0k kcal',
+            trendText: '10% more',
+            isTrendUp: true,
+            progress: 0.80,
+            iconType: StatIconType.calories,
+          ),
+          StatMetric(
+            id: 'distance',
+            title: 'Distance',
+            value: '162.5',
+            targetOrUnit: '/180 km',
+            trendText: '16% more',
+            isTrendUp: true,
+            progress: 0.90,
+            iconType: StatIconType.distance,
+          ),
+          StatMetric(
+            id: 'pace',
+            title: 'Avg Pace',
+            value: '5:18',
+            targetOrUnit: '/km',
+            trendText: '6% faster',
+            isTrendUp: true,
+            progress: 0.74,
+            iconType: StatIconType.pace,
+          ),
+        ];
+      case 'Y':
+        return const [
+          StatMetric(
+            id: 'steps',
+            title: 'Steps',
+            value: '2.8M',
+            targetOrUnit: '/2.5M',
+            trendText: '20% more',
+            isTrendUp: true,
+            progress: 0.92,
+            iconType: StatIconType.steps,
+          ),
+          StatMetric(
+            id: 'heart_rate',
+            title: 'Heart Rate',
+            value: '71',
+            targetOrUnit: '/105 bpm',
+            trendText: '35% lower',
+            isTrendUp: false,
+            progress: 0.40,
+            iconType: StatIconType.heartRate,
+          ),
+          StatMetric(
+            id: 'calories',
+            title: 'Calories',
+            value: '620k',
+            targetOrUnit: '/650k kcal',
+            trendText: '15% more',
+            isTrendUp: true,
+            progress: 0.85,
+            iconType: StatIconType.calories,
+          ),
+          StatMetric(
+            id: 'distance',
+            title: 'Distance',
+            value: '1840',
+            targetOrUnit: '/2000 km',
+            trendText: '22% more',
+            isTrendUp: true,
+            progress: 0.92,
+            iconType: StatIconType.distance,
+          ),
+          StatMetric(
+            id: 'pace',
+            title: 'Avg Pace',
+            value: '5:12',
+            targetOrUnit: '/km',
+            trendText: '8% faster',
+            isTrendUp: true,
+            progress: 0.78,
+            iconType: StatIconType.pace,
+          ),
+        ];
+      case 'Day':
+      default:
+        return const [
+          StatMetric(
+            id: 'steps',
+            title: 'Steps',
+            value: '9839',
+            targetOrUnit: '/8392',
+            trendText: '15% more',
+            isTrendUp: true,
+            progress: 0.78,
+            iconType: StatIconType.steps,
+          ),
+          StatMetric(
+            id: 'heart_rate',
+            title: 'Heart Rate',
+            value: '72',
+            targetOrUnit: '/105 bpm',
+            trendText: '32% lower',
+            isTrendUp: false,
+            progress: 0.42,
+            iconType: StatIconType.heartRate,
+          ),
+          StatMetric(
+            id: 'calories',
+            title: 'Calories',
+            value: '1800',
+            targetOrUnit: '/2200 kcal',
+            trendText: '12% lower',
+            isTrendUp: false,
+            progress: 0.65,
+            iconType: StatIconType.calories,
+          ),
+          StatMetric(
+            id: 'distance',
+            title: 'Distance',
+            value: '7.2',
+            targetOrUnit: '/8.0 km',
+            trendText: '18% more',
+            isTrendUp: true,
+            progress: 0.90,
+            iconType: StatIconType.distance,
+          ),
+          StatMetric(
+            id: 'pace',
+            title: 'Avg Pace',
+            value: '5:32',
+            targetOrUnit: '/km',
+            trendText: '2% faster',
+            isTrendUp: true,
+            progress: 0.68,
+            iconType: StatIconType.pace,
+          ),
+        ];
+    }
+  }
+
+  // --- Stacked Block Hourly Activity ---
+  int _selectedHourlyIndex = 2; // Default 8:00 (peak)
+  int get selectedHourlyIndex => _selectedHourlyIndex;
+
+  final List<HourlyActivityBlock> _hourlyBlocks = const [
+    HourlyActivityBlock(
+      timeLabel: '7:00',
+      tileCount: 2,
+      distanceKm: 1.1,
+      durationMinutes: 8,
+    ),
+    HourlyActivityBlock(
+      timeLabel: '7:30',
+      tileCount: 4,
+      distanceKm: 2.3,
+      durationMinutes: 15,
+    ),
+    HourlyActivityBlock(
+      timeLabel: '8:00',
+      tileCount: 5,
+      isPeak: true,
+      peakBadgeText: 'Better result',
+      distanceKm: 3.2,
+      durationMinutes: 18,
+    ),
+    HourlyActivityBlock(
+      timeLabel: '8:30',
+      tileCount: 3,
+      distanceKm: 1.8,
+      durationMinutes: 12,
+    ),
+    HourlyActivityBlock(
+      timeLabel: '9:00',
+      tileCount: 1,
+      distanceKm: 0.6,
+      durationMinutes: 5,
+    ),
+    HourlyActivityBlock(
+      timeLabel: '9:30',
+      tileCount: 2,
+      distanceKm: 1.4,
+      durationMinutes: 10,
+    ),
+  ];
+  List<HourlyActivityBlock> get hourlyBlocks => _hourlyBlocks;
+
+  void selectHourlyBlock(int index) {
+    _selectedHourlyIndex = index;
+    notifyListeners();
+  }
+
   // --- Activity Chart Data ---
   String _chartFilter = 'Week'; // 'Day', 'Week', 'Month', 'Year'
   int _selectedDayIndex = 3; // Thursday by default
@@ -404,61 +684,78 @@ class AppState extends ChangeNotifier {
     _teamMembers.addAll([
       const TeamMember(
         id: 'tm_1',
-        name: 'Marcus Vance',
-        avatarInitials: 'MV',
+        name: 'Nika',
+        avatarInitials: 'NK',
         avatarBgColor: Color(0xFF65C7A7),
         role: 'Pace Leader',
         weeklyKm: 38.4,
         streakDays: 14,
         totalRuns: 62,
         lastActive: '2h ago',
+        avatarAssetPath: 'assets/images/nika.jpg',
       ),
       const TeamMember(
         id: 'tm_2',
-        name: 'Elena Rostova',
-        avatarInitials: 'ER',
+        name: 'Lisa',
+        avatarInitials: 'LS',
         avatarBgColor: Color(0xFF77CFC3),
         role: 'Marathoner',
         weeklyKm: 46.2,
         streakDays: 21,
         totalRuns: 89,
         lastActive: '5h ago',
+        avatarAssetPath: 'assets/images/lisa.jpg',
       ),
       const TeamMember(
         id: 'tm_3',
-        name: 'Leo Kim',
-        avatarInitials: 'LK',
+        name: 'Chris',
+        avatarInitials: 'CH',
         avatarBgColor: Color(0xFFF2C76B),
         role: 'Sprinter',
         weeklyKm: 22.8,
         streakDays: 4,
         totalRuns: 31,
         lastActive: 'Yesterday',
+        avatarAssetPath: 'assets/images/chris.jpg',
       ),
       const TeamMember(
         id: 'tm_4',
-        name: 'Sophie Dubois',
-        avatarInitials: 'SD',
+        name: 'Adel',
+        avatarInitials: 'AD',
         avatarBgColor: Color(0xFFEA7777),
         role: 'Trail Runner',
         weeklyKm: 31.5,
         streakDays: 8,
         totalRuns: 54,
         lastActive: '1d ago',
+        avatarAssetPath: 'assets/images/adel.jpg',
+      ),
+      const TeamMember(
+        id: 'tm_5',
+        name: 'Jon',
+        avatarInitials: 'JN',
+        avatarBgColor: Color(0xFF9EDFD5),
+        role: 'Endurance',
+        weeklyKm: 29.0,
+        streakDays: 6,
+        totalRuns: 42,
+        lastActive: '3h ago',
+        avatarAssetPath: 'assets/images/jon.jpg',
       ),
     ]);
 
     _suggestedRoutes.addAll([
       SuggestedRoute(
         id: 'rt_1',
-        name: 'One River Park',
-        location: 'Downtown Waterfront',
+        name: 'One Sino Park',
+        location: '2 km from you',
         distanceKm: 7.2,
         estDurationMinutes: 42,
-        difficulty: 'Easy',
+        difficulty: 'Moderate',
         elevationGainM: 34,
         pathCoordinates: _riverParkCoordinates,
-        description: 'Scenic flat riverside trail with fresh morning breeze and dedicated pedestrian lanes.',
+        description: 'Scenic flat park trail with fresh breeze and dedicated pedestrian lanes.',
+        imageAssetPath: 'assets/images/one_sino_park.jpg',
       ),
       SuggestedRoute(
         id: 'rt_2',

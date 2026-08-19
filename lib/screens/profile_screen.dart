@@ -185,36 +185,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         border: isDark ? Border.all(color: AppColors.darkDivider) : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          // Avatar
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkMint : AppColors.mint,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isDark ? AppColors.darkDivider : Colors.white,
-                width: 3,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 10,
+          // Avatar Photo + Lavender Dot
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark ? AppColors.darkDivider : Colors.white,
+                    width: 3,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.10),
+                      blurRadius: 10,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              'JS',
-              style: AppTypography.headingMedium(
-                color: AppColors.primaryText,
-              ).copyWith(fontWeight: FontWeight.w800),
-            ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/julia_avatar.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (ctx, e, st) => Container(
+                      color: AppColors.primaryTeal,
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'JS',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 1,
+                left: 2,
+                child: Container(
+                  width: 13,
+                  height: 13,
+                  decoration: BoxDecoration(
+                    color: AppColors.lavenderBadge,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBackground : Colors.white,
+                      width: 2.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 16),
 
@@ -238,25 +276,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         : AppColors.mutedText,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.darkSecondarySurface
-                        : AppColors.secondarySurface,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '🔥 ${widget.state.currentStreakDays} Day Streak',
-                    style: AppTypography.caption(
-                      color: isDark
-                          ? AppColors.darkMint
-                          : AppColors.primaryTeal,
-                      fontWeight: FontWeight.w700,
-                    ).copyWith(fontSize: 10),
-                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC7ECE6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        '9 Level',
+                        style: TextStyle(
+                          color: AppColors.primaryText,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.darkSecondarySurface
+                            : AppColors.secondarySurface,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Runner',
+                        style: AppTypography.caption(
+                          color: isDark
+                              ? AppColors.darkMint
+                              : AppColors.primaryTeal,
+                          fontWeight: FontWeight.w600,
+                        ).copyWith(fontSize: 11),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

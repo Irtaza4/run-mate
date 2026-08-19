@@ -9,7 +9,7 @@ import 'home_screen.dart';
 import 'live_run_screen.dart';
 import 'profile_screen.dart';
 
-/// Main scaffold hosting the bottom navigation bar and active tab screens
+/// Main scaffold hosting the floating bottom navigation bar and active tab screens
 class MainShellScreen extends StatefulWidget {
   final AppState state;
 
@@ -60,18 +60,17 @@ class _MainShellScreenState extends State<MainShellScreen> {
           IndexedStack(
             index: state.currentTabIndex,
             children: [
-              // Tab 0: Home Dashboard
+              // Tab 0: Activity History (Calendar)
+              ActivityHistoryScreen(
+                state: state,
+              ),
+
+              // Tab 1: Home Dashboard
               HomeScreen(
                 state: state,
                 onStartRunTap: () => state.setTabIndex(2),
-                onExploreTap: () => state.setTabIndex(1),
+                onExploreTap: () => state.setTabIndex(3),
                 onProfileTap: () => state.setTabIndex(4),
-              ),
-
-              // Tab 1: Explore Screen
-              ExploreScreen(
-                state: state,
-                onSelectRouteToRun: _navigateToRunScreenWithRoute,
               ),
 
               // Tab 2: Live Run Screen
@@ -80,9 +79,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
                 initialRoute: _selectedRouteForRun,
               ),
 
-              // Tab 3: Activity History Screen
-              ActivityHistoryScreen(
+              // Tab 3: Explore and Adjust Screen
+              ExploreScreen(
                 state: state,
+                onSelectRouteToRun: _navigateToRunScreenWithRoute,
               ),
 
               // Tab 4: Profile Screen
@@ -93,13 +93,13 @@ class _MainShellScreenState extends State<MainShellScreen> {
           ),
 
           // Floating Dark Bottom Navigation Capsule
-          if (!state.isRunning)
+          if (!state.isTrackingActive)
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
               child: CustomBottomNav(
-                currentIndex: state.currentTabIndex,
+                currentIndex: state.currentTabIndex < 3 ? state.currentTabIndex : 1,
                 onTap: (index) {
                   state.setTabIndex(index);
                 },

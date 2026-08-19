@@ -1,7 +1,10 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 
-/// Quiet, stylized vector map canvas rendering routes and live runner telemetry
+/// Highly stylized, interactive simulated (fake) vector map canvas
+/// rendering realistic city blocks, waterways, parks, street labels,
+/// route polylines, split markers, and pulsing live runner telemetry.
 class RouteMapView extends StatefulWidget {
   final List<Offset> routeCoordinates;
   final Offset? runnerPosition;
@@ -9,6 +12,7 @@ class RouteMapView extends StatefulWidget {
   final bool showControls;
   final double height;
   final VoidCallback? onRecenter;
+  final bool enableGestures;
 
   const RouteMapView({
     super.key,
@@ -18,6 +22,7 @@ class RouteMapView extends StatefulWidget {
     this.showControls = false,
     this.height = 280,
     this.onRecenter,
+    this.enableGestures = true,
   });
 
   @override
@@ -28,20 +33,31 @@ class _RouteMapViewState extends State<RouteMapView>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   double _zoomLevel = 1.0;
+  Offset _panOffset = Offset.zero;
+  Offset _lastFocalPoint = Offset.zero;
+  double _lastZoom = 1.0;
 
   @override
   void initState() {
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: false);
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
     super.dispose();
+  }
+
+  void _resetView() {
+    setState(() {
+      _zoomLevel = 1.0;
+      _panOffset = Offset.zero;
+    });
+    widget.onRecenter?.call();
   }
 
   @override
@@ -52,33 +68,121 @@ class _RouteMapViewState extends State<RouteMapView>
       height: widget.height,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF151818) : const Color(0xFFEAEFEF),
+        color: isDark ? const Color(0xFF101414) : const Color(0xFFEAF0F0),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Stack(
         children: [
-          // Quiet Vector Map & Polyline Canvas
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _pulseController,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: _QuietMapPainter(
-                    routePoints: widget.routeCoordinates,
-                    runnerPoint: widget.runnerPosition ??
-                        (widget.routeCoordinates.isNotEmpty
-                            ? widget.routeCoordinates.last
-                            : null),
-                    pulseValue: _pulseController.value,
-                    isDark: isDark,
-                    zoomLevel: _zoomLevel,
-                  ),
-                );
-              },
+          // 1. Interactive Gestures Canvas for Pan & Zoom
+          GestureDetector(
+            onScaleStart: widget.enableGestures
+                ? (details) {
+                    _lastFocalPoint = details.focalPoint;
+                    _lastZoom = _zoomLevel;
+                  }
+                : null,
+            onScaleUpdate: widget.enableGestures
+                ? (details) {
+                    setState(() {
+                      final delta = details.focalPoint - _lastFocalPoint;
+                      _lastFocalPoint = details.focalPoint;
+                      _panOffset += delta;
+                      _zoomLevel =
+                          (_lastZoom * details.scale).clamp(0.65, 3.0);
+                    });
+                  }
+                : null,
+            onDoubleTap: widget.enableGestures
+                ? () {
+                    setState(() {
+                      _zoomLevel = _zoomLevel > 1.2 ? 1.0 : 1.6;
+                      _panOffset = Offset.zero;
+                    });
+                  }
+                : null,
+            child: SizedBox.expand(
+              child: AnimatedBuilder(
+                animation: _pulseController,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: _FakeVectorMapPainter(
+                      routePoints: widget.routeCoordinates,
+                      runnerPoint: widget.runnerPosition ??
+                          (widget.routeCoordinates.isNotEmpty
+                              ? widget.routeCoordinates.last
+                              : null),
+                      pulseValue: _pulseController.value,
+                      isDark: isDark,
+                      zoomLevel: _zoomLevel,
+                      panOffset: _panOffset,
+                      isLive: widget.isLive,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
 
-          // Map Control Floating Buttons (if enabled)
+          // 2. Minimalist Compass Badge (Top Left)
+          if (widget.showControls)
+            Positioned(
+              top: 14,
+              left: 14,
+              child: _buildCompassBadge(isDark),
+            ),
+
+          // 3. Simulated Map Mode Pill (Top Right)
+          if (widget.showControls)
+            Positioned(
+              top: 14,
+              right: 14,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.65)
+                      : Colors.white.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isDark
+                        ? AppColors.darkDivider
+                        : Colors.black.withValues(alpha: 0.06),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      widget.isLive ? 'LIVE GPS SIM' : 'MAP PREVIEW',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: isDark ? Colors.white70 : AppColors.primaryText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // 4. Map Control Floating Action Buttons (Bottom Right)
           if (widget.showControls)
             Positioned(
               right: 14,
@@ -88,9 +192,10 @@ class _RouteMapViewState extends State<RouteMapView>
                 children: [
                   _buildMapControlButton(
                     icon: Icons.add_rounded,
+                    tooltip: 'Zoom In',
                     onTap: () {
                       setState(() {
-                        _zoomLevel = (_zoomLevel + 0.2).clamp(0.8, 2.0);
+                        _zoomLevel = (_zoomLevel + 0.25).clamp(0.65, 3.0);
                       });
                     },
                     isDark: isDark,
@@ -98,9 +203,10 @@ class _RouteMapViewState extends State<RouteMapView>
                   const SizedBox(height: 8),
                   _buildMapControlButton(
                     icon: Icons.remove_rounded,
+                    tooltip: 'Zoom Out',
                     onTap: () {
                       setState(() {
-                        _zoomLevel = (_zoomLevel - 0.2).clamp(0.8, 2.0);
+                        _zoomLevel = (_zoomLevel - 0.25).clamp(0.65, 3.0);
                       });
                     },
                     isDark: isDark,
@@ -108,13 +214,10 @@ class _RouteMapViewState extends State<RouteMapView>
                   const SizedBox(height: 8),
                   _buildMapControlButton(
                     icon: Icons.my_location_rounded,
-                    iconColor: isDark ? AppColors.darkMint : AppColors.primaryTeal,
-                    onTap: () {
-                      setState(() {
-                        _zoomLevel = 1.0;
-                      });
-                      widget.onRecenter?.call();
-                    },
+                    tooltip: 'Recenter',
+                    iconColor:
+                        isDark ? AppColors.darkMint : AppColors.primaryTeal,
+                    onTap: _resetView,
                     isDark: isDark,
                   ),
                 ],
@@ -125,9 +228,48 @@ class _RouteMapViewState extends State<RouteMapView>
     );
   }
 
+  Widget _buildCompassBadge(bool isDark) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.black.withValues(alpha: 0.65)
+            : Colors.white.withValues(alpha: 0.85),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isDark
+              ? AppColors.darkDivider
+              : Colors.black.withValues(alpha: 0.06),
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.navigation_rounded,
+            size: 14,
+            color: AppColors.danger,
+          ),
+          Text(
+            'N',
+            style: TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : AppColors.primaryText,
+              height: 0.9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMapControlButton({
     required IconData icon,
     required VoidCallback onTap,
+    String? tooltip,
     Color? iconColor,
     required bool isDark,
   }) {
@@ -137,11 +279,18 @@ class _RouteMapViewState extends State<RouteMapView>
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: isDark ? AppColors.darkCard : Colors.white,
+          color: isDark
+              ? const Color(0xFF1E2525).withValues(alpha: 0.9)
+              : Colors.white.withValues(alpha: 0.95),
           shape: BoxShape.circle,
+          border: Border.all(
+            color: isDark
+                ? AppColors.darkDivider
+                : Colors.black.withValues(alpha: 0.08),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
+              color: Colors.black.withValues(alpha: 0.14),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -158,45 +307,75 @@ class _RouteMapViewState extends State<RouteMapView>
   }
 }
 
-class _QuietMapPainter extends CustomPainter {
+/// Custom vector map painter providing an authentic city topography:
+/// river, city blocks, multi-tier roads, park nature reserves, POIs, street names,
+/// route polylines, start/finish flags, km split pins, and runner radar.
+class _FakeVectorMapPainter extends CustomPainter {
   final List<Offset> routePoints;
   final Offset? runnerPoint;
   final double pulseValue;
   final bool isDark;
   final double zoomLevel;
+  final Offset panOffset;
+  final bool isLive;
 
-  _QuietMapPainter({
+  _FakeVectorMapPainter({
     required this.routePoints,
     required this.runnerPoint,
     required this.pulseValue,
     required this.isDark,
     required this.zoomLevel,
+    required this.panOffset,
+    required this.isLive,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Draw subtle ambient background features (River / Green zones)
-    _drawLandscape(canvas, size);
+    canvas.save();
 
-    // 2. Draw quiet road grid network
-    _drawRoadGrid(canvas, size);
+    // 1. City Blocks / Urban Lots (Background layer)
+    _drawCityBlocks(canvas, size);
 
-    // 3. Draw route path
+    // 2. Natural Waterways (River & Shoreline)
+    _drawRiverAndWater(canvas, size);
+
+    // 3. Parks, Woodlands & Green Belts
+    _drawParkReserves(canvas, size);
+
+    // 4. City Road Network (Avenues, Streets, Trails, Bridges)
+    _drawRoadNetwork(canvas, size);
+
+    // 5. Street Names & POI Labels
+    _drawLabelsAndLandmarks(canvas, size);
+
+    // 6. Running Route Polyline & Chevrons
     if (routePoints.length > 1) {
       _drawRoutePolyline(canvas, size);
     }
 
-    // 4. Draw start point pin
-    if (routePoints.isNotEmpty) {
-      final startPos = _toPixel(routePoints.first, size);
-      _drawStartPin(canvas, startPos);
+    // 7. Kilometer Split Badges
+    if (routePoints.length > 2) {
+      _drawKmSplitBadges(canvas, size);
     }
 
-    // 5. Draw active runner marker with pulse
+    // 8. Start Pin & Finish Flag
+    if (routePoints.isNotEmpty) {
+      final startPos = _toPixel(routePoints.first, size);
+      _drawStartMarker(canvas, startPos);
+
+      if (!isLive && routePoints.length > 3) {
+        final endPos = _toPixel(routePoints.last, size);
+        _drawFinishMarker(canvas, endPos);
+      }
+    }
+
+    // 9. Active Runner Pulse & Heading
     if (runnerPoint != null) {
       final currentPos = _toPixel(runnerPoint!, size);
       _drawRunnerMarker(canvas, currentPos);
     }
+
+    canvas.restore();
   }
 
   Offset _toPixel(Offset normalized, Size size) {
@@ -205,106 +384,355 @@ class _QuietMapPainter extends CustomPainter {
     final px = normalized.dx * size.width;
     final py = normalized.dy * size.height;
     return Offset(
-      centerX + (px - centerX) * zoomLevel,
-      centerY + (py - centerY) * zoomLevel,
+      centerX + (px - centerX) * zoomLevel + panOffset.dx,
+      centerY + (py - centerY) * zoomLevel + panOffset.dy,
     );
   }
 
-  void _drawLandscape(Canvas canvas, Size size) {
-    // Soft water path / river
+  void _drawCityBlocks(Canvas canvas, Size size) {
+    final blockFill = Paint()
+      ..color = isDark ? const Color(0xFF161B1B) : const Color(0xFFE2E9E9)
+      ..style = PaintingStyle.fill;
+
+    final blockBorder = Paint()
+      ..color = isDark
+          ? const Color(0xFF1E2424).withValues(alpha: 0.6)
+          : const Color(0xFFD4DEDE)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    // Grid of realistic city parcels / building footprints
+    final blockOffsets = [
+      // Top Left quadrant
+      const Rect.fromLTWH(0.04, 0.05, 0.12, 0.12),
+      const Rect.fromLTWH(0.18, 0.05, 0.14, 0.08),
+      const Rect.fromLTWH(0.04, 0.20, 0.10, 0.14),
+      const Rect.fromLTWH(0.16, 0.15, 0.16, 0.12),
+
+      // Center North
+      const Rect.fromLTWH(0.38, 0.04, 0.14, 0.10),
+      const Rect.fromLTWH(0.54, 0.04, 0.18, 0.14),
+      const Rect.fromLTWH(0.74, 0.05, 0.20, 0.10),
+      const Rect.fromLTWH(0.74, 0.18, 0.18, 0.14),
+
+      // Center East
+      const Rect.fromLTWH(0.70, 0.36, 0.24, 0.12),
+      const Rect.fromLTWH(0.75, 0.52, 0.19, 0.16),
+
+      // Center South
+      const Rect.fromLTWH(0.05, 0.58, 0.16, 0.18),
+      const Rect.fromLTWH(0.24, 0.64, 0.14, 0.15),
+      const Rect.fromLTWH(0.05, 0.79, 0.18, 0.16),
+      const Rect.fromLTWH(0.25, 0.82, 0.16, 0.14),
+      const Rect.fromLTWH(0.44, 0.78, 0.20, 0.16),
+      const Rect.fromLTWH(0.68, 0.75, 0.26, 0.18),
+    ];
+
+    for (final rect in blockOffsets) {
+      final p1 = _toPixel(rect.topLeft, size);
+      final p2 = _toPixel(rect.bottomRight, size);
+      final screenRect = Rect.fromPoints(p1, p2);
+      final rrect = RRect.fromRectAndRadius(screenRect, const Radius.circular(8));
+      canvas.drawRRect(rrect, blockFill);
+      canvas.drawRRect(rrect, blockBorder);
+    }
+  }
+
+  void _drawRiverAndWater(Canvas canvas, Size size) {
+    // Water surface
     final riverPaint = Paint()
       ..color = isDark
-          ? const Color(0xFF102224).withValues(alpha: 0.7)
-          : const Color(0xFFD6EAE7)
+          ? const Color(0xFF0D2529).withValues(alpha: 0.9)
+          : const Color(0xFFCCE4E2)
       ..style = PaintingStyle.fill;
 
-    final riverPath = Path();
-    riverPath.moveTo(0, size.height * 0.25);
-    riverPath.cubicTo(
-      size.width * 0.35,
-      size.height * 0.15,
-      size.width * 0.65,
-      size.height * 0.45,
-      size.width,
-      size.height * 0.35,
-    );
-    riverPath.lineTo(size.width, size.height * 0.52);
-    riverPath.cubicTo(
-      size.width * 0.65,
-      size.height * 0.62,
-      size.width * 0.35,
-      size.height * 0.32,
-      0,
-      size.height * 0.42,
-    );
-    riverPath.close();
-    canvas.drawPath(riverPath, riverPaint);
-
-    // Soft park zone
-    final parkPaint = Paint()
+    // Water shoreline casing
+    final shorePaint = Paint()
       ..color = isDark
-          ? const Color(0xFF16251E).withValues(alpha: 0.5)
-          : const Color(0xFFE2F0EA)
-      ..style = PaintingStyle.fill;
+          ? const Color(0xFF13363B).withValues(alpha: 0.7)
+          : const Color(0xFFB4D7D4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
 
-    final parkRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        size.width * 0.55,
-        size.height * 0.62,
-        size.width * 0.38,
-        size.height * 0.28,
-      ),
-      const Radius.circular(20),
-    );
-    canvas.drawRRect(parkRect, parkPaint);
+    final pStart = _toPixel(const Offset(-0.1, 0.30), size);
+    final pC1 = _toPixel(const Offset(0.30, 0.20), size);
+    final pC2 = _toPixel(const Offset(0.60, 0.48), size);
+    final pEnd = _toPixel(const Offset(1.15, 0.36), size);
+
+    final pEnd2 = _toPixel(const Offset(1.15, 0.54), size);
+    final pC3 = _toPixel(const Offset(0.60, 0.66), size);
+    final pC4 = _toPixel(const Offset(0.30, 0.38), size);
+    final pStart2 = _toPixel(const Offset(-0.1, 0.48), size);
+
+    final riverPath = Path()
+      ..moveTo(pStart.dx, pStart.dy)
+      ..cubicTo(pC1.dx, pC1.dy, pC2.dx, pC2.dy, pEnd.dx, pEnd.dy)
+      ..lineTo(pEnd2.dx, pEnd2.dy)
+      ..cubicTo(pC3.dx, pC3.dy, pC4.dx, pC4.dy, pStart2.dx, pStart2.dy)
+      ..close();
+
+    canvas.drawPath(riverPath, riverPaint);
+    canvas.drawPath(riverPath, shorePaint);
+
+    // River Island / Delta
+    final islandCenter = _toPixel(const Offset(0.48, 0.38), size);
+    final islandRadius = 14 * zoomLevel;
+    final islandPaint = Paint()
+      ..color = isDark ? const Color(0xFF16251E) : const Color(0xFFDCEDE5)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(islandCenter, islandRadius, islandPaint);
   }
 
-  void _drawRoadGrid(Canvas canvas, Size size) {
-    final roadPaint = Paint()
+  void _drawParkReserves(Canvas canvas, Size size) {
+    final parkPaint = Paint()
       ..color = isDark
-          ? const Color(0xFF222828).withValues(alpha: 0.8)
-          : const Color(0xFFDCE2E2)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.round;
+          ? const Color(0xFF152A20).withValues(alpha: 0.75)
+          : const Color(0xFFD8EDE2)
+      ..style = PaintingStyle.fill;
 
-    final minorRoadPaint = Paint()
+    final parkBorder = Paint()
       ..color = isDark
-          ? const Color(0xFF1B2020).withValues(alpha: 0.6)
-          : const Color(0xFFE5ECEC)
+          ? const Color(0xFF1C3A2C).withValues(alpha: 0.6)
+          : const Color(0xFFC0E2CF)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
-    // Horizontal street lines
-    for (double y = 0.15; y <= 0.95; y += 0.20) {
-      canvas.drawLine(
-        Offset(0, size.height * y),
-        Offset(size.width, size.height * y),
-        minorRoadPaint,
-      );
+    // Main Riverside Park
+    final p1 = _toPixel(const Offset(0.42, 0.50), size);
+    final p2 = _toPixel(const Offset(0.85, 0.72), size);
+    final parkRRect = RRect.fromRectAndRadius(
+      Rect.fromPoints(p1, p2),
+      Radius.circular(18 * zoomLevel),
+    );
+    canvas.drawRRect(parkRRect, parkPaint);
+    canvas.drawRRect(parkRRect, parkBorder);
+
+    // Secondary North Park
+    final np1 = _toPixel(const Offset(0.04, 0.04), size);
+    final np2 = _toPixel(const Offset(0.32, 0.18), size);
+    final northParkRRect = RRect.fromRectAndRadius(
+      Rect.fromPoints(np1, np2),
+      Radius.circular(14 * zoomLevel),
+    );
+    canvas.drawRRect(northParkRRect, parkPaint);
+    canvas.drawRRect(northParkRRect, parkBorder);
+
+    // Little decorative botanical trees
+    _drawTreeIcon(canvas, _toPixel(const Offset(0.52, 0.56), size));
+    _drawTreeIcon(canvas, _toPixel(const Offset(0.68, 0.62), size));
+    _drawTreeIcon(canvas, _toPixel(const Offset(0.78, 0.58), size));
+    _drawTreeIcon(canvas, _toPixel(const Offset(0.12, 0.10), size));
+    _drawTreeIcon(canvas, _toPixel(const Offset(0.22, 0.12), size));
+  }
+
+  void _drawTreeIcon(Canvas canvas, Offset pos) {
+    final treePaint = Paint()
+      ..color = isDark
+          ? const Color(0xFF22523A).withValues(alpha: 0.8)
+          : const Color(0xFFA6D6BC)
+      ..style = PaintingStyle.fill;
+    final r = 5.0 * zoomLevel;
+    canvas.drawCircle(pos, r, treePaint);
+  }
+
+  void _drawRoadNetwork(Canvas canvas, Size size) {
+    // 1. Minor Streets (Thin grid lines)
+    final minorStreetPaint = Paint()
+      ..color = isDark
+          ? const Color(0xFF1B2222).withValues(alpha: 0.75)
+          : const Color(0xFFDFE6E6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (1.5 * zoomLevel).clamp(1.0, 3.0);
+
+    // Horizontal streets
+    final yCoords = [0.12, 0.28, 0.44, 0.60, 0.76, 0.92];
+    for (final y in yCoords) {
+      final start = _toPixel(Offset(-0.1, y), size);
+      final end = _toPixel(Offset(1.1, y), size);
+      canvas.drawLine(start, end, minorStreetPaint);
     }
 
     // Vertical avenues
-    for (double x = 0.20; x <= 0.90; x += 0.25) {
-      canvas.drawLine(
-        Offset(size.width * x, 0),
-        Offset(size.width * x, size.height),
-        minorRoadPaint,
-      );
+    final xCoords = [0.15, 0.35, 0.55, 0.75, 0.92];
+    for (final x in xCoords) {
+      final start = _toPixel(Offset(x, -0.1), size);
+      final end = _toPixel(Offset(x, 1.1), size);
+      canvas.drawLine(start, end, minorStreetPaint);
     }
 
-    // Main thoroughfare
+    // 2. Meandering Park Trail (Dashed Green Path)
+    final trailPaint = Paint()
+      ..color = isDark
+          ? const Color(0xFF2A5540).withValues(alpha: 0.85)
+          : const Color(0xFF7EBA9C)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (2.0 * zoomLevel).clamp(1.5, 4.0);
+
+    final trailPath = Path();
+    final tp0 = _toPixel(const Offset(0.44, 0.54), size);
+    final tp1 = _toPixel(const Offset(0.60, 0.52), size);
+    final tp2 = _toPixel(const Offset(0.72, 0.65), size);
+    final tp3 = _toPixel(const Offset(0.82, 0.68), size);
+    trailPath.moveTo(tp0.dx, tp0.dy);
+    trailPath.cubicTo(tp1.dx, tp1.dy, tp2.dx, tp2.dy, tp3.dx, tp3.dy);
+    canvas.drawPath(trailPath, trailPaint);
+
+    // 3. Primary Arterial Boulevard (Thick double casing + fill)
+    final roadCasing = Paint()
+      ..color = isDark
+          ? const Color(0xFF2B3333)
+          : const Color(0xFFCAD4D4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (6.0 * zoomLevel).clamp(4.0, 12.0)
+      ..strokeCap = StrokeCap.round;
+
+    final roadCore = Paint()
+      ..color = isDark
+          ? const Color(0xFF1E2626)
+          : Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (4.0 * zoomLevel).clamp(2.5, 9.0)
+      ..strokeCap = StrokeCap.round;
+
     final mainRoadPath = Path();
-    mainRoadPath.moveTo(size.width * 0.05, size.height * 0.88);
-    mainRoadPath.cubicTo(
-      size.width * 0.30,
-      size.height * 0.70,
-      size.width * 0.70,
-      size.height * 0.85,
-      size.width * 0.95,
-      size.height * 0.15,
+    final p0 = _toPixel(const Offset(-0.05, 0.85), size);
+    final p1 = _toPixel(const Offset(0.28, 0.70), size);
+    final p2 = _toPixel(const Offset(0.68, 0.88), size);
+    final p3 = _toPixel(const Offset(1.05, 0.15), size);
+
+    mainRoadPath.moveTo(p0.dx, p0.dy);
+    mainRoadPath.cubicTo(p1.dx, p1.dy, p2.dx, p2.dy, p3.dx, p3.dy);
+
+    canvas.drawPath(mainRoadPath, roadCasing);
+    canvas.drawPath(mainRoadPath, roadCore);
+
+    // Bridge Deck Over River Crossing
+    final bridgeDeckPos = _toPixel(const Offset(0.88, 0.44), size);
+    final bridgeRect = Rect.fromCenter(
+      center: bridgeDeckPos,
+      width: 14 * zoomLevel,
+      height: 8 * zoomLevel,
     );
-    canvas.drawPath(mainRoadPath, roadPaint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bridgeRect, const Radius.circular(2)),
+      roadCasing,
+    );
+  }
+
+  void _drawLabelsAndLandmarks(Canvas canvas, Size size) {
+    if (zoomLevel < 0.75) return; // Keep clean at small scale
+
+    // Street Name Labels
+    _drawTextLabel(
+      canvas: canvas,
+      text: 'RIVERSIDE BLVD',
+      position: _toPixel(const Offset(0.50, 0.26), size),
+      fontSize: 8.5 * zoomLevel.clamp(0.8, 1.3),
+      isDark: isDark,
+      isStreet: true,
+    );
+
+    _drawTextLabel(
+      canvas: canvas,
+      text: 'GRAND PARKWAY',
+      position: _toPixel(const Offset(0.46, 0.74), size),
+      fontSize: 8.5 * zoomLevel.clamp(0.8, 1.3),
+      isDark: isDark,
+      isStreet: true,
+    );
+
+    _drawTextLabel(
+      canvas: canvas,
+      text: '5TH AVE',
+      position: _toPixel(const Offset(0.35, 0.10), size),
+      fontSize: 8.0 * zoomLevel.clamp(0.8, 1.2),
+      isDark: isDark,
+      isStreet: true,
+    );
+
+    // Landmark POIs
+    _drawPoiBadge(
+      canvas: canvas,
+      icon: '🌳',
+      name: 'Central Green',
+      position: _toPixel(const Offset(0.62, 0.58), size),
+      isDark: isDark,
+    );
+
+    _drawPoiBadge(
+      canvas: canvas,
+      icon: '☕',
+      name: 'River Cafe',
+      position: _toPixel(const Offset(0.24, 0.60), size),
+      isDark: isDark,
+    );
+  }
+
+  void _drawTextLabel({
+    required Canvas canvas,
+    required String text,
+    required Offset position,
+    required double fontSize,
+    required bool isDark,
+    bool isStreet = false,
+  }) {
+    final textSpan = TextSpan(
+      text: text,
+      style: TextStyle(
+        color: isDark
+            ? (isStreet ? const Color(0xFF5A6E6E) : Colors.white70)
+            : (isStreet ? const Color(0xFF8A9A9A) : AppColors.primaryText),
+        fontSize: fontSize.clamp(7.0, 13.0),
+        fontWeight: FontWeight.w700,
+        letterSpacing: isStreet ? 1.2 : 0.4,
+      ),
+    );
+    final tp = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    tp.paint(canvas, Offset(position.dx - tp.width / 2, position.dy - tp.height / 2));
+  }
+
+  void _drawPoiBadge({
+    required Canvas canvas,
+    required String icon,
+    required String name,
+    required Offset position,
+    required bool isDark,
+  }) {
+    final textSpan = TextSpan(
+      text: '$icon $name',
+      style: TextStyle(
+        color: isDark ? Colors.white70 : AppColors.primaryText,
+        fontSize: (8.0 * zoomLevel).clamp(7.0, 11.0),
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    final tp = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final bgRect = Rect.fromCenter(
+      center: position,
+      width: tp.width + 10,
+      height: tp.height + 4,
+    );
+
+    final bgPaint = Paint()
+      ..color = isDark
+          ? Colors.black.withValues(alpha: 0.65)
+          : Colors.white.withValues(alpha: 0.85)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bgRect, const Radius.circular(8)),
+      bgPaint,
+    );
+
+    tp.paint(canvas, Offset(position.dx - tp.width / 2, position.dy - tp.height / 2));
   }
 
   void _drawRoutePolyline(Canvas canvas, Size size) {
@@ -317,80 +745,273 @@ class _QuietMapPainter extends CustomPainter {
       path.lineTo(p.dx, p.dy);
     }
 
-    // Glow shadow
+    // 1. Outer Neon Glow
     final glowPaint = Paint()
-      ..color = AppColors.primaryTeal.withValues(alpha: 0.35)
+      ..color = AppColors.primaryTeal.withValues(alpha: 0.40)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 10.0
+      ..strokeWidth = (11.0 * zoomLevel).clamp(7.0, 18.0)
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
     canvas.drawPath(path, glowPaint);
 
-    // Primary route line
+    // 2. High-Contrast Core Route Line
     final routePaint = Paint()
       ..color = isDark ? AppColors.darkMint : AppColors.primaryTeal
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5.5
+      ..strokeWidth = (5.5 * zoomLevel).clamp(3.5, 9.0)
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(path, routePaint);
+
+    // 3. Directional Chevrons along Route
+    if (routePoints.length > 2) {
+      for (int i = 1; i < routePoints.length; i += math.max(1, (routePoints.length / 4).floor())) {
+        final p1 = _toPixel(routePoints[i - 1], size);
+        final p2 = _toPixel(routePoints[i], size);
+        final angle = math.atan2(p2.dy - p1.dy, p2.dx - p1.dx);
+        final mid = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
+        _drawDirectionArrow(canvas, mid, angle);
+      }
+    }
   }
 
-  void _drawStartPin(Canvas canvas, Offset pos) {
+  void _drawDirectionArrow(Canvas canvas, Offset pos, double angle) {
+    canvas.save();
+    canvas.translate(pos.dx, pos.dy);
+    canvas.rotate(angle);
+
+    final arrowPaint = Paint()
+      ..color = isDark ? const Color(0xFF0F2622) : Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    final arrowPath = Path()
+      ..moveTo(-3, -3)
+      ..lineTo(2, 0)
+      ..lineTo(-3, 3);
+
+    canvas.drawPath(arrowPath, arrowPaint);
+    canvas.restore();
+  }
+
+  void _drawKmSplitBadges(Canvas canvas, Size size) {
+    final splitInterval = math.max(1, (routePoints.length / 3).floor());
+    int km = 1;
+
+    for (int i = splitInterval; i < routePoints.length - 1; i += splitInterval) {
+      if (km > 3) break;
+      final pos = _toPixel(routePoints[i], size);
+
+      // Split Pin Pill
+      final textSpan = TextSpan(
+        text: '${km}K',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 8.5,
+          fontWeight: FontWeight.w800,
+        ),
+      );
+      final tp = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final pillRect = Rect.fromCenter(
+        center: Offset(pos.dx, pos.dy - 12),
+        width: tp.width + 10,
+        height: 14,
+      );
+
+      final bgPaint = Paint()
+        ..color = isDark ? AppColors.darkNavigation : const Color(0xFF1E2828)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(pillRect, const Radius.circular(7)),
+        bgPaint,
+      );
+
+      tp.paint(
+        canvas,
+        Offset(pos.dx - tp.width / 2, pos.dy - 12 - tp.height / 2),
+      );
+
+      // Tiny pin stalk
+      canvas.drawCircle(pos, 2.5, bgPaint);
+      km++;
+    }
+  }
+
+  void _drawStartMarker(Canvas canvas, Offset pos) {
     // Outer white halo
     canvas.drawCircle(
       pos,
-      8,
-      Paint()..color = Colors.white,
+      9.0,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1),
     );
-    // Inner dark/teal dot
+
+    // Inner bright green/teal start dot
     canvas.drawCircle(
       pos,
-      5,
-      Paint()..color = isDark ? AppColors.darkMint : AppColors.darkNavigation,
+      6.0,
+      Paint()
+        ..color = AppColors.success
+        ..style = PaintingStyle.fill,
+    );
+
+    // Start Badge Flag Pill
+    final textSpan = const TextSpan(
+      text: 'START',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 7.5,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.5,
+      ),
+    );
+    final tp = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final badgeRect = Rect.fromCenter(
+      center: Offset(pos.dx, pos.dy - 14),
+      width: tp.width + 8,
+      height: 13,
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(badgeRect, const Radius.circular(6)),
+      Paint()..color = AppColors.success,
+    );
+
+    tp.paint(
+      canvas,
+      Offset(pos.dx - tp.width / 2, pos.dy - 14 - tp.height / 2),
+    );
+  }
+
+  void _drawFinishMarker(Canvas canvas, Offset pos) {
+    // Outer halo
+    canvas.drawCircle(
+      pos,
+      8.0,
+      Paint()..color = Colors.white,
+    );
+
+    // Inner dark circle
+    canvas.drawCircle(
+      pos,
+      5.5,
+      Paint()..color = isDark ? AppColors.darkMint : AppColors.primaryTeal,
+    );
+
+    // Finish Badge Pill
+    final textSpan = const TextSpan(
+      text: 'FINISH',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 7.5,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.5,
+      ),
+    );
+    final tp = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final badgeRect = Rect.fromCenter(
+      center: Offset(pos.dx, pos.dy - 14),
+      width: tp.width + 8,
+      height: 13,
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(badgeRect, const Radius.circular(6)),
+      Paint()..color = isDark ? const Color(0xFF1E2828) : AppColors.darkNavigation,
+    );
+
+    tp.paint(
+      canvas,
+      Offset(pos.dx - tp.width / 2, pos.dy - 14 - tp.height / 2),
     );
   }
 
   void _drawRunnerMarker(Canvas canvas, Offset pos) {
-    // Pulsing radar ripple
-    final rippleRadius = 10.0 + (pulseValue * 18.0);
-    final rippleAlpha = (1.0 - pulseValue) * 0.45;
-    final ripplePaint = Paint()
-      ..color = AppColors.primaryTeal.withValues(alpha: rippleAlpha)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(pos, rippleRadius, ripplePaint);
-
-    // Outer shadow
+    // 1. Multi-tier animated radar ripple waves
+    final r1 = 10.0 + (pulseValue * 22.0);
+    final a1 = (1.0 - pulseValue) * 0.40;
     canvas.drawCircle(
       pos,
-      12,
+      r1,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.25)
+        ..color = AppColors.primaryTeal.withValues(alpha: a1)
+        ..style = PaintingStyle.fill,
+    );
+
+    final r2 = 6.0 + (pulseValue * 12.0);
+    final a2 = (1.0 - pulseValue) * 0.55;
+    canvas.drawCircle(
+      pos,
+      r2,
+      Paint()
+        ..color = AppColors.mint.withValues(alpha: a2)
+        ..style = PaintingStyle.fill,
+    );
+
+    // 2. Drop Shadow
+    canvas.drawCircle(
+      pos,
+      13,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.28)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
 
-    // Core white badge
+    // 3. Crisp white outer badge
     canvas.drawCircle(
       pos,
-      10,
+      10.5,
       Paint()..color = Colors.white,
     );
 
-    // Center teal circle
+    // 4. Center Glowing Runner Core
     canvas.drawCircle(
       pos,
-      6.5,
+      7.0,
       Paint()..color = isDark ? AppColors.darkMint : AppColors.primaryTeal,
     );
+
+    // 5. Direction Heading Arrow
+    canvas.save();
+    canvas.translate(pos.dx, pos.dy);
+    final arrowPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    final headingPath = Path()
+      ..moveTo(0, -5)
+      ..lineTo(3.5, 3)
+      ..lineTo(0, 1.5)
+      ..lineTo(-3.5, 3)
+      ..close();
+    canvas.drawPath(headingPath, arrowPaint);
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _QuietMapPainter oldDelegate) {
+  bool shouldRepaint(covariant _FakeVectorMapPainter oldDelegate) {
     return oldDelegate.pulseValue != pulseValue ||
         oldDelegate.runnerPoint != runnerPoint ||
         oldDelegate.routePoints != routePoints ||
         oldDelegate.zoomLevel != zoomLevel ||
-        oldDelegate.isDark != isDark;
+        oldDelegate.panOffset != panOffset ||
+        oldDelegate.isDark != isDark ||
+        oldDelegate.isLive != isLive;
   }
 }

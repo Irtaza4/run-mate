@@ -147,6 +147,7 @@ class TeamMember {
   final int streakDays;
   final int totalRuns;
   final String lastActive;
+  final String? avatarAssetPath;
 
   const TeamMember({
     required this.id,
@@ -158,6 +159,7 @@ class TeamMember {
     required this.streakDays,
     required this.totalRuns,
     required this.lastActive,
+    this.avatarAssetPath,
   });
 }
 
@@ -172,6 +174,7 @@ class SuggestedRoute {
   final int elevationGainM;
   final List<Offset> pathCoordinates;
   final String description;
+  final String? imageAssetPath;
 
   const SuggestedRoute({
     required this.id,
@@ -183,6 +186,7 @@ class SuggestedRoute {
     required this.elevationGainM,
     required this.pathCoordinates,
     required this.description,
+    this.imageAssetPath,
   });
 }
 
@@ -239,3 +243,48 @@ class Achievement {
     this.unlockedDate,
   });
 }
+
+enum StatIconType { steps, heartRate, calories, distance, pace }
+
+/// Represents a pill stat metric card
+class StatMetric {
+  final String id;
+  final String title;
+  final String value;
+  final String targetOrUnit;
+  final String trendText;
+  final bool isTrendUp;
+  final double progress; // 0.0 to 1.0
+  final StatIconType iconType;
+
+  const StatMetric({
+    required this.id,
+    required this.title,
+    required this.value,
+    required this.targetOrUnit,
+    required this.trendText,
+    required this.isTrendUp,
+    required this.progress,
+    required this.iconType,
+  });
+}
+
+/// Represents an hourly block column in the stacked tile activity chart
+class HourlyActivityBlock {
+  final String timeLabel;
+  final int tileCount;
+  final bool isPeak;
+  final String? peakBadgeText;
+  final double distanceKm;
+  final int durationMinutes;
+
+  const HourlyActivityBlock({
+    required this.timeLabel,
+    required this.tileCount,
+    this.isPeak = false,
+    this.peakBadgeText,
+    this.distanceKm = 1.2,
+    this.durationMinutes = 10,
+  });
+}
+
