@@ -214,6 +214,8 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(totalCards, (index) {
             final isCurrent = index == _topIndex;
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+
             return GestureDetector(
               onTap: () {
                 if (index != _topIndex) {
@@ -229,9 +231,20 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
                 height: 6,
                 decoration: BoxDecoration(
                   color: isCurrent
-                      ? const Color(0xFF111214)
-                      : Colors.black.withValues(alpha: 0.18),
+                      ? (isDark ? const Color(0xFF86E2D5) : const Color(0xFF111214))
+                      : (isDark
+                          ? Colors.white.withValues(alpha: 0.22)
+                          : Colors.black.withValues(alpha: 0.18)),
                   borderRadius: BorderRadius.circular(3),
+                  boxShadow: isCurrent && isDark
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF86E2D5).withValues(alpha: 0.45),
+                            blurRadius: 6,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
                 ),
               ),
             );

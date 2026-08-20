@@ -16,17 +16,22 @@ class StatCapsuleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 172,
         height: 200,
         decoration: BoxDecoration(
-          color: AppColors.statCapsuleDark,
+          color: isDark ? const Color(0xFF1C2222) : AppColors.statCapsuleDark,
           borderRadius: BorderRadius.circular(38),
+          border: isDark
+              ? Border.all(color: const Color(0xFF2E3836), width: 1.3)
+              : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
+              color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.12),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
@@ -59,13 +64,16 @@ class StatCapsuleCard extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            // Inner White Bubble Container with Value, Trend & Bottom Arc
+            // Inner Bubble Container with Value, Trend & Bottom Arc
             Expanded(
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF131717) : Colors.white,
                   borderRadius: BorderRadius.circular(30),
+                  border: isDark
+                      ? Border.all(color: const Color(0xFF222A29), width: 1.0)
+                      : null,
                 ),
                 child: Stack(
                   clipBehavior: Clip.none,
@@ -87,7 +95,7 @@ class StatCapsuleCard extends StatelessWidget {
                                 Text(
                                   metric.value,
                                   style: AppTypography.headingLarge(
-                                    color: AppColors.primaryText,
+                                    color: isDark ? Colors.white : AppColors.primaryText,
                                   ).copyWith(
                                     fontSize: 23,
                                     fontWeight: FontWeight.w800,
@@ -98,7 +106,7 @@ class StatCapsuleCard extends StatelessWidget {
                                 Text(
                                   metric.targetOrUnit,
                                   style: AppTypography.caption(
-                                    color: AppColors.subtleGray,
+                                    color: isDark ? AppColors.darkMutedText : AppColors.subtleGray,
                                     fontWeight: FontWeight.w600,
                                   ).copyWith(fontSize: 13),
                                 ),
@@ -118,7 +126,7 @@ class StatCapsuleCard extends StatelessWidget {
                                 Text(
                                   metric.trendText,
                                   style: AppTypography.caption(
-                                    color: AppColors.primaryText,
+                                    color: isDark ? const Color(0xFF9EDFD5) : AppColors.primaryText,
                                     fontWeight: FontWeight.w500,
                                   ).copyWith(fontSize: 12),
                                 ),
@@ -128,7 +136,7 @@ class StatCapsuleCard extends StatelessWidget {
                                       ? Icons.north_east_rounded
                                       : Icons.south_east_rounded,
                                   size: 13,
-                                  color: AppColors.primaryText,
+                                  color: isDark ? const Color(0xFF9EDFD5) : AppColors.primaryText,
                                 ),
                               ],
                             ),
@@ -146,9 +154,9 @@ class StatCapsuleCard extends StatelessWidget {
                       child: CustomPaint(
                         painter: BottomCurvedProgressPainter(
                           progress: metric.progress,
-                          trackColor: AppColors.statArcTrack,
-                          activeStartColor: AppColors.statArcMintLight,
-                          activeEndColor: AppColors.statArcMintDark,
+                          trackColor: isDark ? const Color(0xFF222B2A) : AppColors.statArcTrack,
+                          activeStartColor: isDark ? const Color(0xFFB8F3EA) : AppColors.statArcMintLight,
+                          activeEndColor: isDark ? const Color(0xFF4AC4B3) : AppColors.statArcMintDark,
                         ),
                       ),
                     ),

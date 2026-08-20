@@ -18,14 +18,15 @@ class StackedTileActivityChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Total columns
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
         final count = blocks.length;
         // Compute column width and gap
         final totalGaps = count - 1;
-        final colGap = 10.0;
+        const colGap = 10.0;
         final colWidth = ((availableWidth - (totalGaps * colGap) - 24) / count)
             .clamp(28.0, 44.0);
         const tileHeight = 32.0;
@@ -45,7 +46,9 @@ class StackedTileActivityChart extends StatelessWidget {
                 height: 10,
                 margin: const EdgeInsets.only(bottom: 24),
                 decoration: BoxDecoration(
-                  color: AppColors.divider.withValues(alpha: 0.8),
+                  color: isDark
+                      ? AppColors.darkDivider
+                      : AppColors.divider.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -68,6 +71,7 @@ class StackedTileActivityChart extends StatelessWidget {
                         tileHeight: tileHeight,
                         tileSpacing: tileSpacing,
                         isSelected: isSelected,
+                        isDark: isDark,
                       ),
 
                       const SizedBox(height: 10),
@@ -77,8 +81,8 @@ class StackedTileActivityChart extends StatelessWidget {
                         block.timeLabel,
                         style: AppTypography.caption(
                           color: isSelected
-                              ? AppColors.primaryText
-                              : AppColors.subtleGray,
+                              ? (isDark ? Colors.white : AppColors.primaryText)
+                              : (isDark ? AppColors.darkMutedText : AppColors.subtleGray),
                           fontWeight: isSelected
                               ? FontWeight.w700
                               : FontWeight.w500,
@@ -95,7 +99,9 @@ class StackedTileActivityChart extends StatelessWidget {
                 height: 10,
                 margin: const EdgeInsets.only(bottom: 24),
                 decoration: BoxDecoration(
-                  color: AppColors.divider.withValues(alpha: 0.8),
+                  color: isDark
+                      ? AppColors.darkDivider
+                      : AppColors.divider.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -112,6 +118,7 @@ class StackedTileActivityChart extends StatelessWidget {
     required double tileHeight,
     required double tileSpacing,
     required bool isSelected,
+    required bool isDark,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -119,6 +126,16 @@ class StackedTileActivityChart extends StatelessWidget {
         // tileIdx 0 is bottom, tileIdx == (tileCount - 1) is top tile
         final isTopTile = tileIdx == (block.tileCount - 1);
         final isPeakTop = isTopTile && block.isPeak;
+
+        final normalTileColor = isDark
+            ? const Color(0xFF203230)
+            : AppColors.tileMint;
+        final selectedTileColor = isDark
+            ? const Color(0xFF33635D)
+            : AppColors.primaryTeal.withValues(alpha: 0.45);
+        final peakTileColor = isDark
+            ? const Color(0xFF5AC6B5)
+            : AppColors.tileMintDark;
 
         return Stack(
           clipBehavior: Clip.none,
@@ -132,22 +149,23 @@ class StackedTileActivityChart extends StatelessWidget {
               ),
               decoration: BoxDecoration(
                 color: isPeakTop
-                    ? AppColors.tileMintDark
-                    : (isSelected
-                        ? AppColors.primaryTeal.withValues(alpha: 0.45)
-                        : AppColors.tileMint),
+                    ? peakTileColor
+                    : (isSelected ? selectedTileColor : normalTileColor),
                 borderRadius: BorderRadius.circular(10),
                 border: isSelected && !isPeakTop
                     ? Border.all(
-                        color: AppColors.primaryTeal,
+                        color: isDark ? const Color(0xFF77CFC3) : AppColors.primaryTeal,
                         width: 1.2,
                       )
-                    : null,
+                    : (isDark && !isPeakTop
+                        ? Border.all(color: const Color(0xFF283D3A), width: 0.8)
+                        : null),
                 boxShadow: isPeakTop
                     ? [
                         BoxShadow(
-                          color: AppColors.tileMintDark.withValues(alpha: 0.35),
-                          blurRadius: 6,
+                          color: (isDark ? const Color(0xFF5AC6B5) : AppColors.tileMintDark)
+                              .withValues(alpha: 0.40),
+                          blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
                       ]
@@ -168,8 +186,8 @@ class StackedTileActivityChart extends StatelessWidget {
                   child: Text(
                     block.peakBadgeText!,
                     style: AppTypography.caption(
-                      color: AppColors.tileMintDark,
-                      fontWeight: FontWeight.w600,
+                      color: isDark ? const Color(0xFF9EDFD5) : AppColors.tileMintDark,
+                      fontWeight: FontWeight.w700,
                     ).copyWith(fontSize: 12, height: 1.1),
                     maxLines: 1,
                   ),

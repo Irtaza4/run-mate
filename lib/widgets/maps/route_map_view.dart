@@ -54,17 +54,45 @@ class _RouteMapViewState extends State<RouteMapView>
     );
 
     if (widget.isLive) {
-      _runProgressController.repeat();
+      _startOrResumeRun();
+    }
+  }
+
+  void _startOrResumeRun() {
+    if (!_runProgressController.isAnimating) {
+      final currentVal = _runProgressController.value;
+      if (currentVal >= 1.0) {
+        _runProgressController.value = 0.0;
+      }
+      final remaining = (1.0 - _runProgressController.value).clamp(0.01, 1.0);
+      _runProgressController.duration = Duration(milliseconds: (90000 * remaining).round());
+      _runProgressController.forward().then((_) {
+        if (widget.isLive && mounted) {
+          _runProgressController.duration = const Duration(seconds: 90);
+          _runProgressController.repeat();
+        }
+      });
+    }
+  }
+
+  void _pauseRun() {
+    if (_runProgressController.isAnimating) {
+      _runProgressController.stop(); // Keeps runner right where they paused!
     }
   }
 
   @override
   void didUpdateWidget(covariant RouteMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isLive && !_runProgressController.isAnimating) {
-      _runProgressController.repeat();
+    if (widget.routeCoordinates != oldWidget.routeCoordinates) {
+      _runProgressController.reset();
+      if (widget.isLive) {
+        _startOrResumeRun();
+      }
+    } else if (widget.isLive && !_runProgressController.isAnimating) {
+      _startOrResumeRun();
     } else if (!widget.isLive && _runProgressController.isAnimating) {
-      _runProgressController.stop();
+      _pauseRun();
     }
   }
 
@@ -127,12 +155,16 @@ class _RouteMapViewState extends State<RouteMapView>
               child: AnimatedBuilder(
                 animation: Listenable.merge([_pulseController, _runProgressController]),
                 builder: (context, child) {
+                  final currentProgress = (widget.isLive || _runProgressController.value > 0)
+                      ? _runProgressController.value
+                      : 1.0;
+
                   return CustomPaint(
                     painter: _FakeVectorMapPainter(
                       routePoints: widget.routeCoordinates,
                       runnerPoint: widget.runnerPosition,
                       pulseValue: _pulseController.value,
-                      runProgress: widget.isLive ? _runProgressController.value : 1.0,
+                      runProgress: currentProgress,
                       isDark: isDark,
                       zoomLevel: _zoomLevel,
                       panOffset: _panOffset,
@@ -394,7 +426,8 @@ class _FakeVectorMapPainter extends CustomPainter {
       final startPos = _toPixel(routePoints.first, size);
       _drawStartMarker(canvas, startPos);
 
-      if (!isLive && routePoints.length > 3) {
+      // Only draw finish marker if route is completed or in static route preview
+      if (runProgress >= 0.98 && routePoints.length > 3) {
         final endPos = _toPixel(routePoints.last, size);
         _drawFinishMarker(canvas, endPos);
       }

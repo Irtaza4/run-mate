@@ -436,9 +436,12 @@ class HomeScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1B2423) : AppColors.darkNavigation,
         borderRadius: BorderRadius.circular(28),
+        border: isDark
+            ? Border.all(color: const Color(0xFF2C3E3A), width: 1.2)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.12),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -459,7 +462,7 @@ class HomeScreen extends StatelessWidget {
               Text(
                 'GPS Signal Ready • Optimal Weather',
                 style: AppTypography.caption(
-                  color: Colors.white.withValues(alpha: 0.65),
+                  color: isDark ? AppColors.darkMutedText : Colors.white.withValues(alpha: 0.65),
                 ),
               ),
             ],
