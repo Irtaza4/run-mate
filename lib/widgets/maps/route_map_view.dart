@@ -30,8 +30,9 @@ class RouteMapView extends StatefulWidget {
 }
 
 class _RouteMapViewState extends State<RouteMapView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _pulseController;
+  late AnimationController _runProgressController;
   double _zoomLevel = 1.0;
   Offset _panOffset = Offset.zero;
   Offset _lastFocalPoint = Offset.zero;
@@ -40,15 +41,37 @@ class _RouteMapViewState extends State<RouteMapView>
   @override
   void initState() {
     super.initState();
+    // Sonar radar & footstep pulse (natural running cadence)
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1400),
     )..repeat();
+
+    // 60FPS smooth continuous running progress at a realistic pace (90 seconds circuit)
+    _runProgressController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 90),
+    );
+
+    if (widget.isLive) {
+      _runProgressController.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant RouteMapView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isLive && !_runProgressController.isAnimating) {
+      _runProgressController.repeat();
+    } else if (!widget.isLive && _runProgressController.isAnimating) {
+      _runProgressController.stop();
+    }
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _runProgressController.dispose();
     super.dispose();
   }
 
@@ -102,16 +125,14 @@ class _RouteMapViewState extends State<RouteMapView>
                 : null,
             child: SizedBox.expand(
               child: AnimatedBuilder(
-                animation: _pulseController,
+                animation: Listenable.merge([_pulseController, _runProgressController]),
                 builder: (context, child) {
                   return CustomPaint(
                     painter: _FakeVectorMapPainter(
                       routePoints: widget.routeCoordinates,
-                      runnerPoint: widget.runnerPosition ??
-                          (widget.routeCoordinates.isNotEmpty
-                              ? widget.routeCoordinates.last
-                              : null),
+                      runnerPoint: widget.runnerPosition,
                       pulseValue: _pulseController.value,
+                      runProgress: widget.isLive ? _runProgressController.value : 1.0,
                       isDark: isDark,
                       zoomLevel: _zoomLevel,
                       panOffset: _panOffset,
@@ -314,6 +335,7 @@ class _FakeVectorMapPainter extends CustomPainter {
   final List<Offset> routePoints;
   final Offset? runnerPoint;
   final double pulseValue;
+  final double runProgress; // Continuous 0.0 -> 1.0 running progress along spline
   final bool isDark;
   final double zoomLevel;
   final Offset panOffset;
@@ -323,6 +345,7 @@ class _FakeVectorMapPainter extends CustomPainter {
     required this.routePoints,
     required this.runnerPoint,
     required this.pulseValue,
+    required this.runProgress,
     required this.isDark,
     required this.zoomLevel,
     required this.panOffset,
@@ -348,17 +371,25 @@ class _FakeVectorMapPainter extends CustomPainter {
     // 5. Street Names & POI Labels
     _drawLabelsAndLandmarks(canvas, size);
 
-    // 6. Running Route Polyline & Chevrons
+    // 6. Calculate continuous runner position, heading angle, and split route
+    final runnerState = _calculateRunnerSplineState(size);
+
+    // 7. Running Route Polylines (Completed Track vs Upcoming Track)
     if (routePoints.length > 1) {
-      _drawRoutePolyline(canvas, size);
+      _drawRoutePolylines(
+        canvas: canvas,
+        size: size,
+        completedPoints: runnerState.completedPixels,
+        upcomingPoints: runnerState.upcomingPixels,
+      );
     }
 
-    // 7. Kilometer Split Badges
+    // 8. Kilometer Split Badges
     if (routePoints.length > 2) {
       _drawKmSplitBadges(canvas, size);
     }
 
-    // 8. Start Pin & Finish Flag
+    // 9. Start Pin & Finish Flag
     if (routePoints.isNotEmpty) {
       final startPos = _toPixel(routePoints.first, size);
       _drawStartMarker(canvas, startPos);
@@ -369,13 +400,90 @@ class _FakeVectorMapPainter extends CustomPainter {
       }
     }
 
-    // 9. Active Runner Pulse & Heading
-    if (runnerPoint != null) {
-      final currentPos = _toPixel(runnerPoint!, size);
-      _drawRunnerMarker(canvas, currentPos);
-    }
+    // 10. Active Live Runner Radar Beacon, Stride Ripples & Heading Arrow
+    _drawRunnerMarker(
+      canvas: canvas,
+      pos: runnerState.pixelPos,
+      headingAngle: runnerState.headingAngle,
+    );
 
     canvas.restore();
+  }
+
+  // Calculates continuous runner position, heading tangent, and route segment split
+  ({Offset pixelPos, double headingAngle, List<Offset> completedPixels, List<Offset> upcomingPixels})
+      _calculateRunnerSplineState(Size size) {
+    if (routePoints.isEmpty) {
+      return (
+        pixelPos: _toPixel(const Offset(0.5, 0.5), size),
+        headingAngle: 0.0,
+        completedPixels: <Offset>[],
+        upcomingPixels: <Offset>[],
+      );
+    }
+
+    final pixelPoints = routePoints.map((p) => _toPixel(p, size)).toList();
+    if (pixelPoints.length == 1) {
+      return (
+        pixelPos: pixelPoints.first,
+        headingAngle: 0.0,
+        completedPixels: pixelPoints,
+        upcomingPixels: <Offset>[],
+      );
+    }
+
+    // Calculate cumulative distances along polyline
+    final List<double> segmentLengths = [];
+    double totalLength = 0.0;
+    for (int i = 1; i < pixelPoints.length; i++) {
+      final d = (pixelPoints[i] - pixelPoints[i - 1]).distance;
+      segmentLengths.add(d);
+      totalLength += d;
+    }
+
+    final progress = runProgress.clamp(0.0, 1.0);
+    final targetDistance = progress * totalLength;
+
+    double accumulated = 0.0;
+    Offset currentPos = pixelPoints.first;
+    double heading = 0.0;
+    int currentSegIndex = 0;
+
+    final List<Offset> completed = [pixelPoints.first];
+    final List<Offset> upcoming = [];
+
+    for (int i = 0; i < segmentLengths.length; i++) {
+      final segLen = segmentLengths[i];
+      final p1 = pixelPoints[i];
+      final p2 = pixelPoints[i + 1];
+
+      if (accumulated + segLen >= targetDistance) {
+        final segProgress = segLen > 0 ? (targetDistance - accumulated) / segLen : 0.0;
+        currentPos = Offset(
+          p1.dx + (p2.dx - p1.dx) * segProgress,
+          p1.dy + (p2.dy - p1.dy) * segProgress,
+        );
+        heading = math.atan2(p2.dy - p1.dy, p2.dx - p1.dx);
+        completed.add(currentPos);
+        upcoming.add(currentPos);
+        currentSegIndex = i + 1;
+        break;
+      } else {
+        accumulated += segLen;
+        completed.add(p2);
+      }
+    }
+
+    for (int i = currentSegIndex; i < pixelPoints.length; i++) {
+      upcoming.add(pixelPoints[i]);
+    }
+
+    return (
+      pixelPos: currentPos,
+      headingAngle: heading,
+      completedPixels: completed,
+      upcomingPixels: upcoming,
+    );
   }
 
   Offset _toPixel(Offset normalized, Size size) {
@@ -735,43 +843,78 @@ class _FakeVectorMapPainter extends CustomPainter {
     tp.paint(canvas, Offset(position.dx - tp.width / 2, position.dy - tp.height / 2));
   }
 
-  void _drawRoutePolyline(Canvas canvas, Size size) {
-    final path = Path();
-    final firstPoint = _toPixel(routePoints.first, size);
-    path.moveTo(firstPoint.dx, firstPoint.dy);
+  void _drawRoutePolylines({
+    required Canvas canvas,
+    required Size size,
+    required List<Offset> completedPoints,
+    required List<Offset> upcomingPoints,
+  }) {
+    // 1. Draw Upcoming Guide Trail (Ahead of runner)
+    if (upcomingPoints.length > 1) {
+      final upcomingPath = Path();
+      upcomingPath.moveTo(upcomingPoints.first.dx, upcomingPoints.first.dy);
+      for (int i = 1; i < upcomingPoints.length; i++) {
+        upcomingPath.lineTo(upcomingPoints[i].dx, upcomingPoints[i].dy);
+      }
 
-    for (int i = 1; i < routePoints.length; i++) {
-      final p = _toPixel(routePoints[i], size);
-      path.lineTo(p.dx, p.dy);
+      // Soft mint planned path glow
+      final upcomingGlow = Paint()
+        ..color = AppColors.primaryTeal.withValues(alpha: isDark ? 0.25 : 0.30)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (8.0 * zoomLevel).clamp(5.0, 14.0)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(upcomingPath, upcomingGlow);
+
+      // Core upcoming line
+      final upcomingCore = Paint()
+        ..color = isDark
+            ? const Color(0xFF2C4844)
+            : const Color(0xFF86E2D5).withValues(alpha: 0.70)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (4.0 * zoomLevel).clamp(2.5, 7.0)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(upcomingPath, upcomingCore);
     }
 
-    // 1. Outer Neon Glow
-    final glowPaint = Paint()
-      ..color = AppColors.primaryTeal.withValues(alpha: 0.40)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = (11.0 * zoomLevel).clamp(7.0, 18.0)
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-    canvas.drawPath(path, glowPaint);
+    // 2. Draw Completed Trail (Where user has already run)
+    if (completedPoints.length > 1) {
+      final completedPath = Path();
+      completedPath.moveTo(completedPoints.first.dx, completedPoints.first.dy);
+      for (int i = 1; i < completedPoints.length; i++) {
+        completedPath.lineTo(completedPoints[i].dx, completedPoints[i].dy);
+      }
 
-    // 2. High-Contrast Core Route Line
-    final routePaint = Paint()
-      ..color = isDark ? AppColors.darkMint : AppColors.primaryTeal
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = (5.5 * zoomLevel).clamp(3.5, 9.0)
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(path, routePaint);
+      // Vibrant Teal Outer Glow
+      final completedGlow = Paint()
+        ..color = AppColors.primaryTeal.withValues(alpha: isDark ? 0.55 : 0.45)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (12.0 * zoomLevel).clamp(8.0, 18.0)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+      canvas.drawPath(completedPath, completedGlow);
 
-    // 3. Directional Chevrons along Route
-    if (routePoints.length > 2) {
-      for (int i = 1; i < routePoints.length; i += math.max(1, (routePoints.length / 4).floor())) {
-        final p1 = _toPixel(routePoints[i - 1], size);
-        final p2 = _toPixel(routePoints[i], size);
-        final angle = math.atan2(p2.dy - p1.dy, p2.dx - p1.dx);
-        final mid = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-        _drawDirectionArrow(canvas, mid, angle);
+      // High-Contrast Solid Black / Dark Charcoal Active Core
+      final completedCore = Paint()
+        ..color = isDark ? Colors.white : AppColors.statCapsuleDark
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (5.5 * zoomLevel).clamp(3.5, 9.0)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(completedPath, completedCore);
+
+      // Directional Chevrons along completed route
+      if (completedPoints.length > 3) {
+        final step = math.max(1, (completedPoints.length / 5).floor());
+        for (int i = step; i < completedPoints.length - 1; i += step) {
+          final p1 = completedPoints[i - 1];
+          final p2 = completedPoints[i];
+          final angle = math.atan2(p2.dy - p1.dy, p2.dx - p1.dx);
+          final mid = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
+          _drawDirectionArrow(canvas, mid, angle);
+        }
       }
     }
   }
@@ -782,7 +925,7 @@ class _FakeVectorMapPainter extends CustomPainter {
     canvas.rotate(angle);
 
     final arrowPaint = Paint()
-      ..color = isDark ? const Color(0xFF0F2622) : Colors.white
+      ..color = isDark ? const Color(0xFF0F2622) : const Color(0xFF86E2D5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round;
@@ -943,10 +1086,14 @@ class _FakeVectorMapPainter extends CustomPainter {
     );
   }
 
-  void _drawRunnerMarker(Canvas canvas, Offset pos) {
-    // 1. Multi-tier animated radar ripple waves
-    final r1 = 10.0 + (pulseValue * 22.0);
-    final a1 = (1.0 - pulseValue) * 0.40;
+  void _drawRunnerMarker({
+    required Canvas canvas,
+    required Offset pos,
+    required double headingAngle,
+  }) {
+    // 1. Dual-tier animated sonar radar waves
+    final r1 = 12.0 + (pulseValue * 26.0);
+    final a1 = (1.0 - pulseValue) * 0.45;
     canvas.drawCircle(
       pos,
       r1,
@@ -955,58 +1102,70 @@ class _FakeVectorMapPainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
-    final r2 = 6.0 + (pulseValue * 12.0);
-    final a2 = (1.0 - pulseValue) * 0.55;
+    final r2 = 7.0 + (pulseValue * 14.0);
+    final a2 = (1.0 - pulseValue) * 0.60;
     canvas.drawCircle(
       pos,
       r2,
       Paint()
-        ..color = AppColors.mint.withValues(alpha: a2)
+        ..color = const Color(0xFF86E2D5).withValues(alpha: a2)
         ..style = PaintingStyle.fill,
     );
 
-    // 2. Drop Shadow
+    // 2. Drop Shadow under runner beacon
     canvas.drawCircle(
       pos,
-      13,
+      14,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.28)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        ..color = Colors.black.withValues(alpha: 0.32)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
 
-    // 3. Crisp white outer badge
+    // 3. Crisp white outer bezel ring
     canvas.drawCircle(
       pos,
-      10.5,
+      11.5,
       Paint()..color = Colors.white,
     );
 
-    // 4. Center Glowing Runner Core
+    // 4. Center Dark Casing
     canvas.drawCircle(
       pos,
-      7.0,
-      Paint()..color = isDark ? AppColors.darkMint : AppColors.primaryTeal,
+      8.5,
+      Paint()..color = AppColors.statCapsuleDark,
     );
 
-    // 5. Direction Heading Arrow
+    // 5. Glowing Mint Inner Dot
+    canvas.drawCircle(
+      pos,
+      4.5,
+      Paint()..color = const Color(0xFF86E2D5),
+    );
+
+    // 6. Directional Forward Chevron pointing along headingAngle
     canvas.save();
     canvas.translate(pos.dx, pos.dy);
-    final arrowPaint = Paint()
+    canvas.rotate(headingAngle + (math.pi / 2)); // Align upright arrow with heading
+
+    final headingPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
+
     final headingPath = Path()
-      ..moveTo(0, -5)
+      ..moveTo(0, -6)
       ..lineTo(3.5, 3)
       ..lineTo(0, 1.5)
       ..lineTo(-3.5, 3)
       ..close();
-    canvas.drawPath(headingPath, arrowPaint);
+
+    canvas.drawPath(headingPath, headingPaint);
     canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant _FakeVectorMapPainter oldDelegate) {
     return oldDelegate.pulseValue != pulseValue ||
+        oldDelegate.runProgress != runProgress ||
         oldDelegate.runnerPoint != runnerPoint ||
         oldDelegate.routePoints != routePoints ||
         oldDelegate.zoomLevel != zoomLevel ||
