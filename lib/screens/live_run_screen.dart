@@ -58,14 +58,10 @@ class _LiveRunScreenState extends State<LiveRunScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final state = widget.state;
 
-    final distanceDisplay = state.liveDistanceKm > 0
-        ? state.liveDistanceKm.toStringAsFixed(1)
-        : '7.2';
-    final hrDisplay = state.liveHeartRate > 0 ? '${state.liveHeartRate}' : '95';
-    final calDisplay = state.liveCalories > 0 ? '${state.liveCalories}' : '375';
-    final durationDisplay = state.liveDuration.inSeconds > 0
-        ? state.formattedLiveDuration
-        : '105 min';
+    final distanceDisplay = state.liveDistanceKm.toStringAsFixed(1);
+    final hrDisplay = '${state.liveHeartRate}';
+    final calDisplay = '${state.liveCalories}';
+    final durationDisplay = state.formattedLiveDuration;
 
     final activeRoute = widget.initialRoute ??
         (state.suggestedRoutes.isNotEmpty ? state.suggestedRoutes.first : null);

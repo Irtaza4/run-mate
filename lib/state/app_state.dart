@@ -144,20 +144,24 @@ class AppState extends ChangeNotifier {
     final stepSeconds = _simulationSpeedMultiplier;
     _liveDuration += Duration(seconds: stepSeconds);
 
-    // Speed calculation: ~10-12 km/h (approx 2.8 - 3.2 m/s)
-    final deltaKm = (0.0031 + (_rnd.nextDouble() * 0.0006 - 0.0003)) * stepSeconds;
+    // Synchronize distance progression with 90s circuit:
+    // 3.0 Km total / 90 seconds = 0.0333 Km per second (1.0 Km at 30s / 1K split)
+    const totalCircuitKm = 3.0;
+    const circuitDurationSeconds = 90.0;
+    final baseSpeedKmPerSec = totalCircuitKm / circuitDurationSeconds; // ~0.0333 km/s
+    final deltaKm = (baseSpeedKmPerSec + (_rnd.nextDouble() * 0.002 - 0.001)) * stepSeconds;
     _liveDistanceKm += deltaKm;
 
-    // Pace variance
-    final currentInstantPace = (5.10 + (_rnd.nextDouble() * 0.4 - 0.2));
+    // Pace variance (~4:50 - 5:20 min/km)
+    final currentInstantPace = (5.00 + (_rnd.nextDouble() * 0.3 - 0.15));
     _livePace = (_livePace * 0.85) + (currentInstantPace * 0.15);
 
-    // Heart Rate variance
-    final targetHr = 135 + (_liveDistanceKm * 3.5).toInt().clamp(0, 30);
-    _liveHeartRate = (targetHr + (_rnd.nextInt(5) - 2)).clamp(115, 178);
+    // Heart Rate variance (125-165 bpm)
+    final targetHr = 132 + (_liveDistanceKm * 8.0).toInt().clamp(0, 32);
+    _liveHeartRate = (targetHr + (_rnd.nextInt(5) - 2)).clamp(118, 172);
 
-    // Calories: approx 65-70 kcal/km
-    _liveCalories = (_liveDistanceKm * 68).round();
+    // Calories: approx 62-68 kcal per km
+    _liveCalories = (_liveDistanceKm * 64).round();
 
     // Cadence
     _liveCadence = 166 + (_rnd.nextInt(5) - 2);

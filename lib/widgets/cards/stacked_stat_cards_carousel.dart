@@ -42,15 +42,15 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
   void initState() {
     super.initState();
 
-    // Re-insertion animation: Outwards arc -> slides back into the bottom slot
+    // Re-insertion animation: Outwards arc -> slides back into the bottom slot (smooth 700ms for recording)
     _reinsertController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 480),
+      duration: const Duration(milliseconds: 700),
     );
 
     _snapBackController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 280),
+      duration: const Duration(milliseconds: 360),
     );
 
     _reinsertController.addStatusListener((status) {
@@ -225,7 +225,8 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
                 }
               },
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 260),
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
                 margin: const EdgeInsets.symmetric(horizontal: 3.5),
                 width: isCurrent ? 22 : 6,
                 height: 6,
@@ -304,21 +305,23 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
               angle: currentRotation,
               child: Opacity(
                 opacity: currentOpacity.clamp(0.0, 1.0),
-                child: Container(
-                  width: cardWidth,
-                  height: cardHeight,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(38),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.10),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: StatCapsuleCard(
-                    metric: metric,
+                child: RepaintBoundary(
+                  child: Container(
+                    width: cardWidth,
+                    height: cardHeight,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(38),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.10),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: StatCapsuleCard(
+                      metric: metric,
+                    ),
                   ),
                 ),
               ),
@@ -360,22 +363,24 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
         scale: currentScale,
         child: Opacity(
           opacity: currentOpacity.clamp(0.0, 1.0),
-          child: Container(
-            width: cardWidth,
-            height: cardHeight,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(38),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: StatCapsuleCard(
-              metric: metric,
-              onTap: () => _triggerReinsert(direction: 1.0),
+          child: RepaintBoundary(
+            child: Container(
+              width: cardWidth,
+              height: cardHeight,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(38),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: StatCapsuleCard(
+                metric: metric,
+                onTap: () => _triggerReinsert(direction: 1.0),
+              ),
             ),
           ),
         ),
@@ -404,31 +409,33 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
         offset: _dragOffset,
         child: Transform.rotate(
           angle: rotation,
-          child: Container(
-            width: cardWidth,
-            height: cardHeight,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(38),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: _isDragging ? 0.26 : 0.16,
+          child: RepaintBoundary(
+            child: Container(
+              width: cardWidth,
+              height: cardHeight,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(38),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: _isDragging ? 0.26 : 0.16,
+                    ),
+                    blurRadius: _isDragging ? 26 : 18,
+                    offset: Offset(
+                      _dragOffset.dx * 0.1,
+                      8 + (_dragOffset.dy.abs() * 0.1),
+                    ),
                   ),
-                  blurRadius: _isDragging ? 26 : 18,
-                  offset: Offset(
-                    _dragOffset.dx * 0.1,
-                    8 + (_dragOffset.dy.abs() * 0.1),
-                  ),
-                ),
-              ],
-            ),
-            child: StatCapsuleCard(
-              metric: metric,
-              onTap: () {
-                if (_dragOffset.distance < 8) {
-                  widget.onCardTap?.call(metric);
-                }
-              },
+                ],
+              ),
+              child: StatCapsuleCard(
+                metric: metric,
+                onTap: () {
+                  if (_dragOffset.distance < 8) {
+                    widget.onCardTap?.call(metric);
+                  }
+                },
+              ),
             ),
           ),
         ),
