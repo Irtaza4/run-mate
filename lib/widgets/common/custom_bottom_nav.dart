@@ -35,21 +35,18 @@ class CustomBottomNav extends StatelessWidget {
           _buildNavItem(
             index: 0,
             icon: Icons.calendar_today_outlined,
-            isPill: false,
           ),
 
-          // 2. Center: Home Dashboard (with capsule border indicator)
+          // 2. Center: Home Dashboard
           _buildNavItem(
             index: 1,
             icon: Icons.home_outlined,
-            isPill: true,
           ),
 
-          // 3. Right: Live Run / Runner (with circular border indicator)
+          // 3. Right: Live Run / Runner
           _buildNavItem(
             index: 2,
             icon: Icons.directions_run_rounded,
-            isCircle: true,
           ),
         ],
       ),
@@ -59,8 +56,6 @@ class CustomBottomNav extends StatelessWidget {
   Widget _buildNavItem({
     required int index,
     required IconData icon,
-    bool isPill = false,
-    bool isCircle = false,
   }) {
     final isSelected = currentIndex == index;
 
@@ -68,25 +63,24 @@ class CustomBottomNav extends StatelessWidget {
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        padding: isPill
-            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
-            : const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          borderRadius: isPill ? BorderRadius.circular(20) : null,
-          shape: isCircle ? BoxShape.circle : (isPill ? BoxShape.rectangle : BoxShape.rectangle),
-          border: (isSelected && (isPill || isCircle))
+          borderRadius: BorderRadius.circular(24),
+          border: isSelected
               ? Border.all(color: Colors.white, width: 1.6)
-              : null,
-          color: (isSelected && !isPill && !isCircle)
-              ? Colors.white.withValues(alpha: 0.15)
+              : Border.all(color: Colors.transparent, width: 1.6),
+          color: isSelected
+              ? Colors.white.withValues(alpha: 0.08)
               : Colors.transparent,
         ),
         child: Icon(
           icon,
           size: 24,
-          color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.55),
+          color: isSelected
+              ? Colors.white
+              : Colors.white.withValues(alpha: 0.45),
         ),
       ),
     );

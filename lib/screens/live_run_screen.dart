@@ -304,13 +304,16 @@ class _LiveRunScreenState extends State<LiveRunScreen>
 
                   const SizedBox(width: 20),
 
-                  // 2. Central Giant Pause / Resume Button
+                  // 2. Central Giant Pause / Resume / Start Button
                   GestureDetector(
                     onTap: () {
                       if (state.isRunning) {
                         state.pauseRun();
-                      } else {
+                      } else if (state.trackingState == RunTrackingState.paused) {
                         state.resumeRun();
+                      } else {
+                        // Start a fresh new run
+                        state.startRun(route: widget.initialRoute);
                       }
                     },
                     child: Container(
@@ -343,6 +346,9 @@ class _LiveRunScreenState extends State<LiveRunScreen>
                   // 3. Stop / Finish Button
                   GestureDetector(
                     onTap: () {
+                      if (!state.isTrackingActive && state.trackingState != RunTrackingState.running) {
+                        return;
+                      }
                       final completedRun = state.finishRun();
                       Navigator.push(
                         context,
@@ -351,7 +357,12 @@ class _LiveRunScreenState extends State<LiveRunScreen>
                             run: completedRun,
                           ),
                         ),
-                      );
+                      ).then((_) {
+                        // When returning from summary, reset ready for next run
+                        if (mounted) {
+                          setState(() {});
+                        }
+                      });
                     },
                     child: Container(
                       width: 52,

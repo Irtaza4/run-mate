@@ -93,18 +93,17 @@ class _MainShellScreenState extends State<MainShellScreen> {
           ),
 
           // Floating Dark Bottom Navigation Capsule
-          if (!state.isTrackingActive)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: CustomBottomNav(
-                currentIndex: state.currentTabIndex < 3 ? state.currentTabIndex : 1,
-                onTap: (index) {
-                  state.setTabIndex(index);
-                },
-              ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: CustomBottomNav(
+              currentIndex: state.currentTabIndex < 3 ? state.currentTabIndex : 1,
+              onTap: (index) {
+                state.setTabIndex(index);
+              },
             ),
+          ),
         ],
       ),
     );
