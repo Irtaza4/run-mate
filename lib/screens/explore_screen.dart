@@ -16,7 +16,7 @@ class ExploreScreen extends StatefulWidget {
     required this.onSelectRouteToRun,
   });
 
-  @override 
+  @override
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
 

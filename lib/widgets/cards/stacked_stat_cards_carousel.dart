@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../../models/models.dart';
 import 'stat_capsule_card.dart';
 
-/// Interactive stacked card deck where cards sit directly on top of each other.
-/// When swiping the top card (left or right), it smoothly slides and loops
-/// to the BOTTOM/BACK of the stack, and the card behind it pops UP to the top.
+/// Interactive stacked card deck where swiping a card (left or right)
+/// causes it to arc out, drop in depth, and visibly slide BACK INTO THE DECK
+/// at the bottom slot, while the cards behind make space and elevate to the top.
 class StackedStatCardsCarousel extends StatefulWidget {
   final List<StatMetric> metrics;
   final ValueChanged<StatMetric>? onCardTap;
@@ -26,27 +26,26 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
   Offset _dragOffset = Offset.zero;
   bool _isDragging = false;
 
-  // Animation controller for swiping top card away to the back
-  late AnimationController _swipeController;
-  late Animation<Offset> _swipeAnimation;
-  late Animation<double> _rotationAnimation;
+  // Animation controller for the full swipe-out & re-insert to deck loop
+  late AnimationController _reinsertController;
 
-  // Animation controller for snapping back if swipe threshold is not met
+  // Animation controller for snapping back if swipe threshold was not reached
   late AnimationController _snapBackController;
   late Animation<Offset> _snapBackAnimation;
 
-  // Track the outgoing card that is flying to the back
-  int? _outgoingCardIndex;
-  Offset _outgoingCardStartOffset = Offset.zero;
-  double _outgoingCardStartRotation = 0.0;
+  // State of the card currently undergoing the re-insertion loop
+  int? _animatingCardIndex;
+  Offset _animatingCardStartOffset = Offset.zero;
+  double _swipeDirection = 1.0; // +1.0 = right, -1.0 = left
 
   @override
   void initState() {
     super.initState();
 
-    _swipeController = AnimationController(
+    // Re-insertion animation: Outwards arc -> slides back into the bottom slot
+    _reinsertController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 380),
+      duration: const Duration(milliseconds: 480),
     );
 
     _snapBackController = AnimationController(
@@ -54,15 +53,15 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
       duration: const Duration(milliseconds: 280),
     );
 
-    _swipeController.addStatusListener((status) {
+    _reinsertController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         setState(() {
-          // Top card successfully moved to bottom of stack
+          // Advance top index: the animated card is now resting at the back
           _topIndex = (_topIndex + 1) % widget.metrics.length;
-          _outgoingCardIndex = null;
+          _animatingCardIndex = null;
           _dragOffset = Offset.zero;
         });
-        _swipeController.reset();
+        _reinsertController.reset();
       }
     });
 
@@ -85,13 +84,15 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
 
   @override
   void dispose() {
-    _swipeController.dispose();
+    _reinsertController.dispose();
     _snapBackController.dispose();
     super.dispose();
   }
 
   void _onPanStart(DragStartDetails details) {
-    if (_swipeController.isAnimating || _snapBackController.isAnimating) return;
+    if (_reinsertController.isAnimating || _snapBackController.isAnimating) {
+      return;
+    }
     _snapBackController.stop();
     setState(() {
       _isDragging = true;
@@ -99,56 +100,27 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
-    if (_swipeController.isAnimating) return;
+    if (_reinsertController.isAnimating) return;
     setState(() {
       _dragOffset += details.delta;
     });
   }
 
   void _onPanEnd(DragEndDetails details) {
-    if (_swipeController.isAnimating) return;
+    if (_reinsertController.isAnimating) return;
 
     final velocity = details.velocity.pixelsPerSecond.dx;
     final distance = _dragOffset.dx;
-    final screenWidth = MediaQuery.of(context).size.width;
 
-    // Trigger swipe if dragged sufficiently or fast velocity
-    if (distance.abs() > 70 || velocity.abs() > 350) {
+    // Trigger re-insertion loop if dragged past threshold or swiped fast
+    if (distance.abs() > 65 || velocity.abs() > 320) {
       final direction = distance != 0
           ? (distance > 0 ? 1.0 : -1.0)
           : (velocity >= 0 ? 1.0 : -1.0);
 
-      final targetX = direction * (screenWidth * 0.9);
-      final targetY = _dragOffset.dy + (velocity * 0.05).clamp(-50.0, 50.0);
-
-      _outgoingCardIndex = _topIndex;
-      _outgoingCardStartOffset = _dragOffset;
-      _outgoingCardStartRotation = (_dragOffset.dx / 300.0).clamp(-0.25, 0.25);
-
-      _swipeAnimation = Tween<Offset>(
-        begin: _outgoingCardStartOffset,
-        end: Offset(targetX, targetY),
-      ).animate(
-        CurvedAnimation(
-          parent: _swipeController,
-          curve: Curves.easeOutCubic,
-        ),
-      );
-
-      _rotationAnimation = Tween<double>(
-        begin: _outgoingCardStartRotation,
-        end: direction * 0.35,
-      ).animate(
-        CurvedAnimation(
-          parent: _swipeController,
-          curve: Curves.easeOutCubic,
-        ),
-      );
-
-      _isDragging = false;
-      _swipeController.forward(from: 0.0);
+      _triggerReinsert(direction: direction, startOffset: _dragOffset);
     } else {
-      // Snap back to center
+      // Snap back onto the top of the deck
       _snapBackAnimation = Tween<Offset>(
         begin: _dragOffset,
         end: Offset.zero,
@@ -162,39 +134,18 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
     }
   }
 
-  // Programmatic swipe to next card (e.g. tapping shuffle or dots)
-  void _swipeNext({double direction = 1.0}) {
-    if (_swipeController.isAnimating || _snapBackController.isAnimating) return;
+  void _triggerReinsert({
+    required double direction,
+    Offset startOffset = Offset.zero,
+  }) {
+    if (_reinsertController.isAnimating) return;
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final targetX = direction * (screenWidth * 0.85);
-
-    _outgoingCardIndex = _topIndex;
-    _outgoingCardStartOffset = Offset.zero;
-    _outgoingCardStartRotation = 0.0;
-
-    _swipeAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: Offset(targetX, -10.0),
-    ).animate(
-      CurvedAnimation(
-        parent: _swipeController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
-
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: direction * 0.30,
-    ).animate(
-      CurvedAnimation(
-        parent: _swipeController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
-
+    _animatingCardIndex = _topIndex;
+    _animatingCardStartOffset = startOffset;
+    _swipeDirection = direction;
     _isDragging = false;
-    _swipeController.forward(from: 0.0);
+
+    _reinsertController.forward(from: 0.0);
   }
 
   @override
@@ -202,14 +153,14 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
     if (widget.metrics.isEmpty) return const SizedBox.shrink();
 
     final totalCards = widget.metrics.length;
-    const cardWidth = 180.0;
+    const cardWidth = 182.0;
     const cardHeight = 206.0;
-    const containerHeight = 236.0;
+    const containerHeight = 240.0;
 
-    // Progress of the current drag or swipe animation (0.0 to 1.0)
+    // Transition progress (0.0 to 1.0) for the cards behind moving forward
     double progress = 0.0;
-    if (_swipeController.isAnimating) {
-      progress = _swipeController.value;
+    if (_reinsertController.isAnimating) {
+      progress = _reinsertController.value;
     } else if (_isDragging || _snapBackController.isAnimating) {
       progress = (_dragOffset.dx.abs() / 150.0).clamp(0.0, 1.0);
     }
@@ -217,15 +168,18 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 1. Stack of Cards
+        // 1. Deck Stack Container
         SizedBox(
           height: containerHeight,
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
             children: [
-              // --- RENDER BACKGROUND CARDS IN REVERSE (Rank 2 -> Rank 1 -> Rank 0) ---
-              // Rank 2 (Deepest visible card in the stack)
+              // --- LAYER 0 (Bottom-most): The re-inserting card sliding back into the deck ---
+              if (_animatingCardIndex != null && _reinsertController.isAnimating)
+                _buildReinsertingCard(cardWidth, cardHeight),
+
+              // --- LAYER 1: Rank 2 Card (Deepest stationary card in deck) ---
               if (totalCards > 2)
                 _buildCardRank(
                   rank: 2,
@@ -234,7 +188,7 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
                   cardHeight: cardHeight,
                 ),
 
-              // Rank 1 (Card directly behind top card)
+              // --- LAYER 2: Rank 1 Card (Card immediately behind top) ---
               if (totalCards > 1)
                 _buildCardRank(
                   rank: 1,
@@ -243,22 +197,19 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
                   cardHeight: cardHeight,
                 ),
 
-              // Rank 0 (Top foreground active card that user can drag & swipe)
-              _buildTopDraggableCard(
-                cardWidth: cardWidth,
-                cardHeight: cardHeight,
-              ),
-
-              // Outgoing card flying to the back during swipe animation
-              if (_outgoingCardIndex != null && _swipeController.isAnimating)
-                _buildOutgoingCard(cardWidth, cardHeight),
+              // --- LAYER 3 (Top foreground): Draggable Active Card ---
+              if (_animatingCardIndex == null || !_reinsertController.isAnimating)
+                _buildTopDraggableCard(
+                  cardWidth: cardWidth,
+                  cardHeight: cardHeight,
+                ),
             ],
           ),
         ),
 
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
 
-        // 2. Deck Pagination Indicators / Dots
+        // 2. Pagination Indicator Dots with Tap-to-Cycle
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(totalCards, (index) {
@@ -266,13 +217,15 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
             return GestureDetector(
               onTap: () {
                 if (index != _topIndex) {
-                  _swipeNext(direction: index > _topIndex ? 1.0 : -1.0);
+                  _triggerReinsert(
+                    direction: index > _topIndex ? 1.0 : -1.0,
+                  );
                 }
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 260),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: isCurrent ? 20 : 6,
+                margin: const EdgeInsets.symmetric(horizontal: 3.5),
+                width: isCurrent ? 22 : 6,
                 height: 6,
                 decoration: BoxDecoration(
                   color: isCurrent
@@ -288,7 +241,82 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
     );
   }
 
-  // Builds cards layered behind the top card (Rank 1, Rank 2)
+  // --- BUILD THE RE-INSERTING CARD SLIDING BACK INTO THE DECK ---
+  Widget _buildReinsertingCard(double cardWidth, double cardHeight) {
+    final metric = widget.metrics[_animatingCardIndex!];
+
+    return AnimatedBuilder(
+      animation: _reinsertController,
+      builder: (context, child) {
+        final t = _reinsertController.value;
+
+        // Two-phase physical trajectory:
+        // Phase 1 (0.0 -> 0.35): Card swings outwards, clears the deck, and dips in depth
+        // Phase 2 (0.35 -> 1.0): Card slides back IN from the side into the bottom slot Offset(0, 26)
+        double currentX;
+        double currentY;
+        double currentScale;
+        double currentRotation;
+        double currentOpacity;
+
+        final maxOutX = _swipeDirection * 155.0;
+        final targetBackY = 26.0; // Vertical position of bottom slot in deck
+        final targetBackScale = 0.84; // Scale at bottom slot
+
+        if (t <= 0.35) {
+          final p1 = t / 0.35; // 0.0 -> 1.0
+          currentX = _animatingCardStartOffset.dx +
+              (maxOutX - _animatingCardStartOffset.dx) * Curves.easeOutQuad.transform(p1);
+          currentY = _animatingCardStartOffset.dy +
+              (targetBackY - _animatingCardStartOffset.dy) * p1;
+          currentScale = 1.0 - ((1.0 - targetBackScale) * p1);
+          currentRotation = (_swipeDirection * 0.20) * (1.0 - (p1 * 0.5));
+          currentOpacity = 1.0 - (0.35 * p1);
+        } else {
+          final p2 = (t - 0.35) / 0.65; // 0.0 -> 1.0
+          final easeP2 = Curves.easeInOutCubic.transform(p2);
+          // Slide back from maxOutX -> 0 into the bottom of the deck
+          currentX = maxOutX * (1.0 - easeP2);
+          currentY = targetBackY;
+          currentScale = targetBackScale;
+          currentRotation = (_swipeDirection * 0.10) * (1.0 - easeP2);
+          currentOpacity = 0.65 + (0.05 * easeP2);
+        }
+
+        return Transform.translate(
+          offset: Offset(currentX, currentY),
+          child: Transform.scale(
+            scale: currentScale,
+            child: Transform.rotate(
+              angle: currentRotation,
+              child: Opacity(
+                opacity: currentOpacity.clamp(0.0, 1.0),
+                child: Container(
+                  width: cardWidth,
+                  height: cardHeight,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(38),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.10),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: StatCapsuleCard(
+                    metric: metric,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // --- BUILDS CARDS IN DECK BEHIND TOP CARD (Rank 1, Rank 2) ---
   Widget _buildCardRank({
     required int rank,
     required double progress,
@@ -298,8 +326,9 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
     final metricIndex = (_topIndex + rank) % widget.metrics.length;
     final metric = widget.metrics[metricIndex];
 
-    // As progress goes 0.0 -> 1.0 (top card being swiped away),
-    // Rank 1 interpolates to Rank 0, and Rank 2 interpolates to Rank 1.
+    // As top card is pulled away / re-inserts (progress: 0.0 -> 1.0):
+    // Rank 1 elevates to Rank 0 (scale: 0.92 -> 1.0, offsetY: 14 -> 0)
+    // Rank 2 elevates to Rank 1 (scale: 0.84 -> 0.92, offsetY: 26 -> 14)
     final currentScale = rank == 1
         ? (0.92 + (progress * 0.08)) // 0.92 -> 1.00
         : (0.84 + (progress * 0.08)); // 0.84 -> 0.92
@@ -333,7 +362,7 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
             ),
             child: StatCapsuleCard(
               metric: metric,
-              onTap: () => _swipeNext(),
+              onTap: () => _triggerReinsert(direction: 1.0),
             ),
           ),
         ),
@@ -341,18 +370,12 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
     );
   }
 
-  // Builds the top card that reacts to touch gestures and dragging
+  // --- BUILDS THE TOP FOREGROUND CARD ---
   Widget _buildTopDraggableCard({
     required double cardWidth,
     required double cardHeight,
   }) {
     final metric = widget.metrics[_topIndex];
-
-    // If animating swipe away, hide the base top card since _buildOutgoingCard renders it
-    if (_swipeController.isAnimating && _outgoingCardIndex == _topIndex) {
-      return const SizedBox.shrink();
-    }
-
     final rotation = (_dragOffset.dx / 300.0).clamp(-0.25, 0.25);
 
     return GestureDetector(
@@ -397,40 +420,6 @@ class _StackedStatCardsCarouselState extends State<StackedStatCardsCarousel>
           ),
         ),
       ),
-    );
-  }
-
-  // Outgoing card flying off screen and dropping to bottom of stack
-  Widget _buildOutgoingCard(double cardWidth, double cardHeight) {
-    final metric = widget.metrics[_outgoingCardIndex!];
-
-    return AnimatedBuilder(
-      animation: _swipeController,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: _swipeAnimation.value,
-          child: Transform.rotate(
-            angle: _rotationAnimation.value,
-            child: Container(
-              width: cardWidth,
-              height: cardHeight,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(38),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.20),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: StatCapsuleCard(
-                metric: metric,
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
