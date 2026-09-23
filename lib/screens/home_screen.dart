@@ -7,6 +7,7 @@ import '../widgets/cards/challenge_card.dart';
 import '../widgets/cards/stacked_stat_cards_carousel.dart';
 import '../widgets/charts/stacked_tile_activity_chart.dart';
 import '../widgets/common/custom_buttons.dart';
+import 'reel_showcase_screen.dart';
 import 'run_detail_screen.dart';
 
 /// Main Home Dashboard Screen matching the exact reference design
@@ -597,6 +598,46 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (ctx) => ReelShowcaseScreen(run: latestRun),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF833AB4),
+                          Color(0xFFFD1D1D),
+                          Color(0xFFFCB045),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('✨', style: TextStyle(fontSize: 10)),
+                        SizedBox(width: 4),
+                        Text(
+                          'Reel',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 14,

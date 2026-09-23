@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
+import '../widgets/animations/run_launch_countdown_dialog.dart';
 import '../widgets/common/custom_bottom_nav.dart';
 import 'activity_history_screen.dart';
 import 'explore_screen.dart';
@@ -40,11 +41,22 @@ class _MainShellScreenState extends State<MainShellScreen> {
     }
   }
 
+  void _startRunSequenceWithCountdown({SuggestedRoute? route}) {
+    final routeTitle = route?.name ?? 'Quick Outdoor Session';
+    RunLaunchCountdownDialog.show(
+      context,
+      routeTitle: routeTitle,
+      onComplete: () {
+        setState(() {
+          _selectedRouteForRun = route;
+        });
+        widget.state.setTabIndex(2);
+      },
+    );
+  }
+
   void _navigateToRunScreenWithRoute(SuggestedRoute route) {
-    setState(() {
-      _selectedRouteForRun = route;
-    });
-    widget.state.setTabIndex(2);
+    _startRunSequenceWithCountdown(route: route);
   }
 
   @override
@@ -68,7 +80,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
               // Tab 1: Home Dashboard
               HomeScreen(
                 state: state,
-                onStartRunTap: () => state.setTabIndex(2),
+                onStartRunTap: () => _startRunSequenceWithCountdown(),
                 onExploreTap: () => state.setTabIndex(3),
                 onProfileTap: () => state.setTabIndex(4),
               ),
