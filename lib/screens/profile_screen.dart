@@ -3,6 +3,7 @@ import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import '../widgets/common/custom_buttons.dart';
+import 'reel_showcase_screen.dart';
 
 /// Profile & Settings screen
 class ProfileScreen extends StatefulWidget {
@@ -25,16 +26,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final state = widget.state;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       body: SafeArea(
         bottom: false,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // Header Title
+            // Top Bar
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -76,7 +77,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+            // 3D Reel Story Studio Action Banner
+            if (state.runHistory.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _buildReelStudioBanner(context, isDark),
+                ),
+              ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
             // Goals Progress Section
             SliverToBoxAdapter(
@@ -658,6 +670,121 @@ class _ProfileScreenState extends State<ProfileScreen> {
             activeTrackColor: isDark ? AppColors.darkMint : AppColors.primaryTeal,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReelStudioBanner(BuildContext context, bool isDark) {
+    final bestRun = widget.state.runHistory.first;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ReelShowcaseScreen(run: bestRun),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF18122B), Color(0xFF0F1016)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: const Color(0xFF833AB4).withValues(alpha: 0.5),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF833AB4).withValues(alpha: 0.2),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF833AB4),
+                    Color(0xFFFD1D1D),
+                    Color(0xFFFCB045),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              alignment: Alignment.center,
+              child: const Text('✨', style: TextStyle(fontSize: 24)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        '3D REEL STUDIO',
+                        style: TextStyle(
+                          color: Color(0xFFFCB045),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'VIRAL',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Create 3D Hologram Story Card',
+                    style: AppTypography.bodyMedium(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ).copyWith(fontSize: 14),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Interactive 3D tilt, neon route replay & confetti',
+                    style: AppTypography.caption(
+                      color: Colors.white60,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Color(0xFFFCB045),
+              size: 16,
+            ),
+          ],
+        ),
       ),
     );
   }
