@@ -5,6 +5,7 @@ import '../theme/app_typography.dart';
 import '../widgets/charts/splits_list_view.dart';
 import '../widgets/common/custom_buttons.dart';
 import '../widgets/maps/route_map_view.dart';
+import 'reel_showcase_screen.dart';
 
 /// Run Completion Celebration and Summary screen
 class RunSummaryScreen extends StatelessWidget {
@@ -92,18 +93,65 @@ class RunSummaryScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               // Action Buttons
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ReelShowcaseScreen(run: run),
+                    ),
+                  );
+                },
+                child: Container(
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF833AB4),
+                        Color(0xFFFD1D1D),
+                        Color(0xFFFCB045),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFD1D1D).withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('✨', style: TextStyle(fontSize: 18)),
+                      SizedBox(width: 8),
+                      Text(
+                        'View 3D Reel Story Card',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               PrimaryButton(
                 text: 'Done',
-                height: 56,
+                height: 52,
                 onPressed: () {
                   Navigator.pop(context);
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               SecondaryButton(
-                text: 'Share Run',
+                text: 'Share Summary',
                 icon: Icons.share_rounded,
-                height: 50,
+                height: 48,
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

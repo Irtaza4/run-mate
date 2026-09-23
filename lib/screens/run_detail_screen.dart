@@ -6,6 +6,7 @@ import '../theme/app_typography.dart';
 import '../widgets/charts/splits_list_view.dart';
 import '../widgets/common/custom_buttons.dart';
 import '../widgets/maps/route_map_view.dart';
+import 'reel_showcase_screen.dart';
 
 /// Detailed analytical breakdown of a single completed run
 class RunDetailScreen extends StatelessWidget {
@@ -33,6 +34,47 @@ class RunDetailScreen extends StatelessWidget {
           ),
         ),
         actions: [
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ReelShowcaseScreen(run: run),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFD1D1D).withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Row(
+                children: [
+                  Text('✨', style: TextStyle(fontSize: 12)),
+                  SizedBox(width: 4),
+                  Text(
+                    '3D Reel',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           IconButtonCapsule(
             icon: Icons.share_rounded,
             onPressed: () {
