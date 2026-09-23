@@ -62,6 +62,14 @@ class AppTypography {
         color: color ?? AppColors.primaryText,
       );
 
+  static TextStyle bodySmall({Color? color, FontWeight? fontWeight}) =>
+      GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: fontWeight ?? FontWeight.w400,
+        height: 1.4,
+        color: color ?? AppColors.primaryText,
+      );
+
   static TextStyle caption({Color? color, FontWeight? fontWeight}) =>
       GoogleFonts.inter(
         fontSize: 12,
