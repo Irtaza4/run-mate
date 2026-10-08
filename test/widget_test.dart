@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:run_mate/main.dart';
 import 'package:run_mate/models/models.dart';
 import 'package:run_mate/screens/main_shell_screen.dart';
+import 'package:run_mate/screens/reel_showcase_screen.dart';
+import 'package:run_mate/widgets/animations/run_launch_countdown_dialog.dart';
 import 'package:run_mate/widgets/cards/stacked_stat_cards_carousel.dart';
 import 'package:run_mate/state/app_state.dart';
 
@@ -172,7 +174,83 @@ void main() {
       state.pauseRun();
       await tester.pumpWidget(const SizedBox());
     });
+
+    testWidgets('RunLaunchCountdownDialog renders 3-2-1 sequence and can skip', (WidgetTester tester) async {
+      bool completed = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                RunLaunchCountdownDialog.show(
+                  context,
+                  routeTitle: 'Morning Sprint',
+                  onComplete: () => completed = true,
+                );
+              },
+              child: const Text('Launch'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Launch'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Morning Sprint'), findsOneWidget);
+      expect(find.text('Skip Countdown'), findsOneWidget);
+
+      await tester.tap(find.text('Skip Countdown'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(completed, true);
+    });
+
+    testWidgets('ReelShowcaseScreen renders 3D Hologram Reel Story Card and controls', (WidgetTester tester) async {
+      final sampleRun = RunActivity(
+        id: 'test_run',
+        title: 'Morning Coastal Run',
+        date: DateTime.now(),
+        distanceKm: 7.2,
+        duration: const Duration(minutes: 38, seconds: 12),
+        avgPaceMinPerKm: 5.3,
+        calories: 520,
+        avgHeartRate: 148,
+        routeCoordinates: const [
+          Offset(0.2, 0.8),
+          Offset(0.5, 0.4),
+          Offset(0.8, 0.2),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReelShowcaseScreen(run: sampleRun),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('REEL STUDIO'), findsOneWidget);
+      expect(find.text('RUNMATE PRO'), findsOneWidget);
+      expect(find.text('Morning Coastal Run'), findsOneWidget);
+      expect(find.text('7.20'), findsOneWidget);
+      expect(find.text('Cyberpunk'), findsOneWidget);
+      expect(find.text('Sunset Gold'), findsOneWidget);
+      expect(find.text('Share to Instagram'), findsOneWidget);
+
+      // Switch theme to Sunset Gold
+      await tester.tap(find.text('Sunset Gold'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      await tester.pumpWidget(const SizedBox());
+    });
   });
 }
+
 
 
